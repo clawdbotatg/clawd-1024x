@@ -110,7 +110,7 @@ const Home: NextPage = () => {
   const { data: winEvents } = useScaffoldEventHistory({
     contractName: "TenTwentyFourX",
     eventName: "BetWon",
-    fromBlock: 0n,
+    fromBlock: BigInt(Math.max(0, currentBlock - 50000)),
     watch: true,
   });
 
@@ -515,7 +515,7 @@ const Home: NextPage = () => {
             2% house edge • 1% burned every roll 🔥 • Commit-reveal fairness • Multiple concurrent bets supported
           </p>
           <p className="text-xs opacity-40 mt-1">
-            ⚠️ Multiple large wins may exceed house balance. Play responsibly.
+            ⚠️ Solvency is best-effort. Multiple simultaneous large wins could exceed house balance. Play responsibly. Not financial advice.
           </p>
         </div>
       </div>

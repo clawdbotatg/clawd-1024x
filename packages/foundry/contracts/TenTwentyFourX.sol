@@ -19,10 +19,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * - 1% of every bet burned forever
  * - 2% house edge on winnings
  *
- * Owner (clawdbotatg.eth) can trigger a withdrawal with 5-minute delay.
+ * Owner (clawdbotatg.eth) can trigger a withdrawal with 15-minute delay.
  * Triggering withdrawal immediately pauses new bets so no one gets rugged mid-roll.
- *
- * ⚠️ Multiple large wins can exceed house balance. Players accept this risk.
+ * Outstanding potential payouts are reserved and cannot be withdrawn.
  */
 contract TenTwentyFourX is ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -34,7 +33,7 @@ contract TenTwentyFourX is ReentrancyGuard {
     uint256 public constant BURN_PERCENT = 1;
     uint256 public constant REVEAL_WINDOW = 256;
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
-    uint256 public constant WITHDRAW_DELAY = 5 minutes;
+    uint256 public constant WITHDRAW_DELAY = 15 minutes;
 
     uint256[4] public VALID_BETS = [
         10_000 * 1e18,
@@ -61,6 +60,9 @@ contract TenTwentyFourX is ReentrancyGuard {
     uint256 public withdrawRequestedAt;
     address public withdrawTo;
 
+    // Outstanding potential payouts (reserved for pending bets)
+    uint256 public totalOutstandingPotentialPayouts;
+
     // Stats
     uint256 public totalBets;
     uint256 public totalWins;
@@ -76,7 +78,10 @@ contract TenTwentyFourX is ReentrancyGuard {
     event WithdrawCancelled(address indexed by);
     event WithdrawExecuted(address indexed to, uint256 amount);
     event Paused(bool isPaused);
-    event OwnerTransferred(address indexed oldOwner, address indexed newOwner);
+    event OwnershipProposed(address indexed current, address indexed proposed);
+    event OwnershipAccepted(address indexed oldOwner, address indexed newOwner);
+
+    address public pendingOwner;
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
@@ -100,7 +105,7 @@ contract TenTwentyFourX is ReentrancyGuard {
         uint256 payout = (betAmount * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
         uint256 netBet = betAmount - (betAmount * BURN_PERCENT) / 100;
         require(
-            token.balanceOf(address(this)) + netBet >= payout,
+            token.balanceOf(address(this)) + netBet >= totalOutstandingPotentialPayouts + payout,
             "House underfunded for this bet"
         );
 
@@ -122,6 +127,7 @@ contract TenTwentyFourX is ReentrancyGuard {
             claimed: false
         }));
 
+        totalOutstandingPotentialPayouts += payout;
         totalBets++;
         totalBetAmount += betAmount;
 
@@ -166,6 +172,7 @@ contract TenTwentyFourX is ReentrancyGuard {
         uint256 payout = (b.betAmount * b.multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
 
         b.claimed = true;
+        totalOutstandingPotentialPayouts -= payout;
         totalWins++;
         totalPaidOut += payout;
 
@@ -182,7 +189,9 @@ contract TenTwentyFourX is ReentrancyGuard {
         require(!b.claimed, "Already claimed");
         require(block.number > b.commitBlock, "Wait one block");
 
+        uint256 payout = (b.betAmount * b.multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
         b.claimed = true;
+        totalOutstandingPotentialPayouts -= payout;
         emit BetForfeited(msg.sender, betIndex);
     }
 
@@ -191,6 +200,7 @@ contract TenTwentyFourX is ReentrancyGuard {
     /// @notice Owner requests withdrawal. Immediately pauses new bets.
     function requestWithdraw(address _to) external onlyOwner {
         require(_to != address(0), "Invalid address");
+        require(withdrawRequestedAt == 0, "Withdrawal already pending");
         paused = true;
         withdrawRequestedAt = block.timestamp;
         withdrawTo = _to;
@@ -215,7 +225,9 @@ contract TenTwentyFourX is ReentrancyGuard {
         require(block.timestamp >= withdrawRequestedAt + WITHDRAW_DELAY, "Delay not met");
 
         address to = withdrawTo;
-        uint256 amount = token.balanceOf(address(this));
+        uint256 balance = token.balanceOf(address(this));
+        require(balance > totalOutstandingPotentialPayouts, "Nothing withdrawable");
+        uint256 amount = balance - totalOutstandingPotentialPayouts;
 
         withdrawRequestedAt = 0;
         withdrawTo = address(0);
@@ -233,11 +245,19 @@ contract TenTwentyFourX is ReentrancyGuard {
         emit Paused(false);
     }
 
-    /// @notice Transfer ownership
-    function transferOwnership(address newOwner) external onlyOwner {
+    /// @notice Propose new owner (two-step transfer)
+    function proposeOwner(address newOwner) external onlyOwner {
         require(newOwner != address(0), "Invalid owner");
-        emit OwnerTransferred(owner, newOwner);
-        owner = newOwner;
+        pendingOwner = newOwner;
+        emit OwnershipProposed(owner, newOwner);
+    }
+
+    /// @notice Accept ownership (must be called by proposed owner)
+    function acceptOwnership() external {
+        require(msg.sender == pendingOwner, "Not pending owner");
+        emit OwnershipAccepted(owner, msg.sender);
+        owner = msg.sender;
+        pendingOwner = address(0);
     }
 
     // ===== View functions =====
@@ -258,7 +278,7 @@ contract TenTwentyFourX is ReentrancyGuard {
         for (int i = int(VALID_MULTIPLIERS.length) - 1; i >= 0; i--) {
             uint256 m = VALID_MULTIPLIERS[uint256(i)];
             uint256 payout = (betAmount * m * (100 - HOUSE_EDGE_PERCENT)) / 100;
-            if (currentBalance + netBet >= payout) {
+            if (currentBalance + netBet >= totalOutstandingPotentialPayouts + payout) {
                 return m;
             }
         }

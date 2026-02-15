@@ -539,6 +539,13 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "acceptOwnership",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "batchReveal",
           inputs: [
             {
@@ -880,6 +887,19 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "pendingOwner",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "playerBets",
           inputs: [
             {
@@ -921,6 +941,19 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "proposeOwner",
+          inputs: [
+            {
+              name: "newOwner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -1012,6 +1045,19 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "totalOutstandingPotentialPayouts",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "totalPaidOut",
           inputs: [],
           outputs: [
@@ -1035,19 +1081,6 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "transferOwnership",
-          inputs: [
-            {
-              name: "newOwner",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -1201,7 +1234,7 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "OwnerTransferred",
+          name: "OwnershipAccepted",
           inputs: [
             {
               name: "oldOwner",
@@ -1211,6 +1244,25 @@ const deployedContracts = {
             },
             {
               name: "newOwner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "OwnershipProposed",
+          inputs: [
+            {
+              name: "current",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "proposed",
               type: "address",
               indexed: true,
               internalType: "address",
@@ -1319,7 +1371,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 42204705,
+      deployedOnBlock: 42205170,
     },
   },
 } as const;
