@@ -431,19 +431,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "BET_AMOUNT",
-          inputs: [],
-          outputs: [
-            {
-              name: "",
-              type: "uint256",
-              internalType: "uint256",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "BURN_ADDRESS",
           inputs: [],
           outputs: [
@@ -485,6 +472,25 @@ const deployedContracts = {
           type: "function",
           name: "REVEAL_WINDOW",
           inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "VALID_BETS",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
           outputs: [
             {
               name: "",
@@ -552,6 +558,11 @@ const deployedContracts = {
               internalType: "bytes32",
             },
             {
+              name: "betAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
               name: "multiplier",
               type: "uint256",
               internalType: "uint256",
@@ -578,6 +589,11 @@ const deployedContracts = {
             },
             {
               name: "commitBlock",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "betAmount",
               type: "uint256",
               internalType: "uint256",
             },
@@ -647,6 +663,11 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
+              name: "betAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
               name: "multiplier",
               type: "uint256",
               internalType: "uint256",
@@ -666,8 +687,13 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "getPayoutForMultiplier",
+          name: "getPayoutFor",
           inputs: [
+            {
+              name: "betAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
             {
               name: "multiplier",
               type: "uint256",
@@ -679,6 +705,19 @@ const deployedContracts = {
               name: "",
               type: "uint256",
               internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "getValidBets",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256[4]",
+              internalType: "uint256[4]",
             },
           ],
           stateMutability: "view",
@@ -711,8 +750,14 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "maxMultiplier",
-          inputs: [],
+          name: "maxMultiplierForBet",
+          inputs: [
+            {
+              name: "betAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
           outputs: [
             {
               name: "",
@@ -841,6 +886,12 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
+              name: "betAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
               name: "multiplier",
               type: "uint256",
               indexed: false,
@@ -935,6 +986,12 @@ const deployedContracts = {
               internalType: "bytes32",
             },
             {
+              name: "betAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
               name: "multiplier",
               type: "uint256",
               indexed: false,
@@ -967,7 +1024,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 42204006,
+      deployedOnBlock: 42204238,
     },
   },
 } as const;

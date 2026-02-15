@@ -7,35 +7,39 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title TenTwentyFourX
- * @notice A variable-odds betting game with multipliers from 2x to 1024x using commit-reveal for fairness.
+ * @notice A variable-odds, variable-bet betting game with multipliers from 2x to 1024x using commit-reveal.
  *
  * How it works:
- * 1. CLICK: Pay 10,000 CLAWD, pick a multiplier (2-1024), and submit hash(secret, salt). Tokens go to the contract.
- * 2. CHECK: After 1 block, you can compute locally whether you won.
+ * 1. CLICK: Pick a bet size (10K/50K/100K/500K CLAWD) and multiplier (2x-1024x), submit hash(secret, salt).
+ * 2. CHECK: After 1 block, compute locally whether you won.
  *    - winning = (keccak256(secret, commitBlockHash) % multiplier == 0)
  * 3. REVEAL (only if you won!): Submit secret + salt on-chain to claim payout.
- *    - Payout = 10,000 * multiplier * 98 / 100 (2% house edge)
+ *    - Payout = betAmount * multiplier * 98 / 100 (2% house edge)
  *
  * Economics:
- * - 1% of every bet is burned forever (100 CLAWD per roll)
+ * - 1% of every bet is burned forever
  * - 2% house edge on winnings
- * - Example: 2x pays 19,600 CLAWD. 1024x pays 10,035,200 CLAWD.
+ * - Solvency guard: can't pick a bet/multiplier combo the house can't cover
  *
  * The contract must be funded with CLAWD to pay out winners.
- * Anyone can fund the house by transferring CLAWD to the contract.
  */
 contract TenTwentyFourX is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;
 
-    uint256 public constant BET_AMOUNT = 10_000 * 1e18;    // 10K CLAWD (18 decimals)
-    uint256 public constant HOUSE_EDGE_PERCENT = 2;        // 2% house edge
+    uint256 public constant HOUSE_EDGE_PERCENT = 2;        // 2% house edge on winnings
     uint256 public constant BURN_PERCENT = 1;              // 1% burn on every bet
     uint256 public constant REVEAL_WINDOW = 256;           // blocks before commitment expires
-    
-    // Burn address - 0x000000000000000000000000000000000000dEaD
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+
+    // Valid bet amounts (in tokens with 18 decimals)
+    uint256[4] public VALID_BETS = [
+        10_000 * 1e18,
+        50_000 * 1e18,
+        100_000 * 1e18,
+        500_000 * 1e18
+    ];
 
     // Valid multipliers: powers of 2 from 2 to 1024
     uint256[10] public VALID_MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
@@ -43,6 +47,7 @@ contract TenTwentyFourX is ReentrancyGuard {
     struct Commitment {
         bytes32 dataHash;
         uint256 commitBlock;
+        uint256 betAmount;
         uint256 multiplier;
         bool claimed;
     }
@@ -56,8 +61,8 @@ contract TenTwentyFourX is ReentrancyGuard {
     uint256 public totalPaidOut;
     uint256 public totalBurned;
 
-    event Clicked(address indexed player, bytes32 dataHash, uint256 commitBlock, uint256 multiplier, uint256 payout, uint256 burnAmount);
-    event Won(address indexed player, bytes32 secret, bytes32 salt, uint256 multiplier, uint256 payout);
+    event Clicked(address indexed player, bytes32 dataHash, uint256 commitBlock, uint256 betAmount, uint256 multiplier, uint256 payout, uint256 burnAmount);
+    event Won(address indexed player, bytes32 secret, bytes32 salt, uint256 betAmount, uint256 multiplier, uint256 payout);
     event Forfeited(address indexed player, uint256 commitBlock);
     event HouseFunded(address indexed funder, uint256 amount);
     event TokensBurned(uint256 amount);
@@ -67,60 +72,58 @@ contract TenTwentyFourX is ReentrancyGuard {
         token = IERC20(_token);
     }
 
-    /// @notice Place a bet by committing a hash, selecting a multiplier, and paying 10K CLAWD
+    /// @notice Place a bet by committing a hash, selecting bet size + multiplier
     /// @param dataHash keccak256(abi.encodePacked(secret, salt))
-    /// @param multiplier The multiplier to bet on (must be a valid power of 2: 2, 4, 8, ..., 1024)
-    function click(bytes32 dataHash, uint256 multiplier) external nonReentrant {
+    /// @param betAmount The bet size (must be 10K, 50K, 100K, or 500K CLAWD)
+    /// @param multiplier The multiplier (must be a power of 2: 2, 4, 8, ..., 1024)
+    function click(bytes32 dataHash, uint256 betAmount, uint256 multiplier) external nonReentrant {
         require(dataHash != bytes32(0), "Empty hash");
+        require(_isValidBet(betAmount), "Invalid bet amount");
         require(_isValidMultiplier(multiplier), "Invalid multiplier");
-        
-        // Allow re-betting if: no previous bet, previous was claimed/forfeited,
-        // previous expired (>256 blocks), OR previous is at least 1 block old
-        // (player forfeits any unclaimed win by placing a new bet)
+
+        // Allow re-betting after 1 block
         Commitment memory prev = commitments[msg.sender];
         require(
-            prev.commitBlock == 0 || 
+            prev.commitBlock == 0 ||
             prev.claimed ||
             block.number > prev.commitBlock,
             "Wait one block before re-betting"
         );
 
         // Calculate potential payout (with 2% house edge)
-        uint256 payout = (BET_AMOUNT * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
+        uint256 payout = (betAmount * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
 
-        // Must have enough house funds to pay a potential winner
-        // House keeps 99% of bet (1% burned), so check with net amount
-        uint256 netBet = BET_AMOUNT - (BET_AMOUNT * BURN_PERCENT) / 100;
+        // Solvency: house keeps 99% of bet (1% burned)
+        uint256 netBet = betAmount - (betAmount * BURN_PERCENT) / 100;
         require(
             token.balanceOf(address(this)) + netBet >= payout,
-            "House underfunded for this multiplier"
+            "House underfunded for this bet"
         );
 
         // Take the bet
-        token.safeTransferFrom(msg.sender, address(this), BET_AMOUNT);
+        token.safeTransferFrom(msg.sender, address(this), betAmount);
 
-        // Burn 1% of bet
-        uint256 burnAmount = (BET_AMOUNT * BURN_PERCENT) / 100;
+        // Burn 1%
+        uint256 burnAmount = (betAmount * BURN_PERCENT) / 100;
         token.safeTransfer(BURN_ADDRESS, burnAmount);
         totalBurned += burnAmount;
 
         commitments[msg.sender] = Commitment({
             dataHash: dataHash,
             commitBlock: block.number,
+            betAmount: betAmount,
             multiplier: multiplier,
             claimed: false
         });
 
         totalBets++;
-        totalBetAmount += BET_AMOUNT;
+        totalBetAmount += betAmount;
 
-        emit Clicked(msg.sender, dataHash, block.number, multiplier, payout, burnAmount);
+        emit Clicked(msg.sender, dataHash, block.number, betAmount, multiplier, payout, burnAmount);
         emit TokensBurned(burnAmount);
     }
 
-    /// @notice Reveal your secret to claim winnings (only call this if you won!)
-    /// @param secret The secret value you committed
-    /// @param salt Random salt used when committing
+    /// @notice Reveal your secret to claim winnings (only call if you won!)
     function reveal(bytes32 secret, bytes32 salt) external nonReentrant {
         Commitment storage c = commitments[msg.sender];
 
@@ -139,21 +142,19 @@ contract TenTwentyFourX is ReentrancyGuard {
         bytes32 randomSeed = keccak256(abi.encodePacked(secret, commitBlockHash));
         require(uint256(randomSeed) % c.multiplier == 0, "Not a winner");
 
-        // Calculate payout (with house edge)
-        uint256 payout = (BET_AMOUNT * c.multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
+        // Payout uses stored bet amount
+        uint256 payout = (c.betAmount * c.multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
 
-        // Mark claimed and pay out
         c.claimed = true;
         totalWins++;
         totalPaidOut += payout;
 
         token.safeTransfer(msg.sender, payout);
 
-        emit Won(msg.sender, secret, salt, c.multiplier, payout);
+        emit Won(msg.sender, secret, salt, c.betAmount, c.multiplier, payout);
     }
 
-    /// @notice Forfeit your current bet so you can play again immediately.
-    /// @dev The player voluntarily abandons any potential winnings. Their 10K bet stays in the house.
+    /// @notice Forfeit your current bet
     function forfeit() external nonReentrant {
         Commitment storage c = commitments[msg.sender];
         require(c.commitBlock != 0, "No bet found");
@@ -164,38 +165,33 @@ contract TenTwentyFourX is ReentrancyGuard {
         emit Forfeited(msg.sender, c.commitBlock);
     }
 
-    /// @notice Compute the commitment hash (use this to generate your hash off-chain too)
+    /// @notice Compute the commitment hash
     function computeHash(bytes32 secret, bytes32 salt) external pure returns (bytes32) {
         return keccak256(abi.encodePacked(secret, salt));
     }
 
     /// @notice Check if a secret would win given a specific blockhash and multiplier
-    /// @dev Use this client-side: pass your secret, the blockhash from your commit block, and multiplier
     function checkWin(bytes32 secret, bytes32 blockHash, uint256 multiplier) external pure returns (bool) {
         bytes32 randomSeed = keccak256(abi.encodePacked(secret, blockHash));
         return uint256(randomSeed) % multiplier == 0;
     }
 
-    /// @notice Get the highest multiplier the house can currently afford to cover
-    /// @return The maximum multiplier available for betting
-    function maxMultiplier() external view returns (uint256) {
+    /// @notice Get the highest multiplier the house can cover for a given bet size
+    function maxMultiplierForBet(uint256 betAmount) external view returns (uint256) {
         uint256 currentBalance = token.balanceOf(address(this));
-        
-        // Check each multiplier from highest to lowest
+        uint256 netBet = betAmount - (betAmount * BURN_PERCENT) / 100;
+
         for (int i = int(VALID_MULTIPLIERS.length) - 1; i >= 0; i--) {
-            uint256 multiplier = VALID_MULTIPLIERS[uint256(i)];
-            uint256 payout = (BET_AMOUNT * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
-            
-            // If house can cover this payout (including the incoming bet)
-            if (currentBalance + BET_AMOUNT - (BET_AMOUNT * BURN_PERCENT) / 100 >= payout) {
-                return multiplier;
+            uint256 m = VALID_MULTIPLIERS[uint256(i)];
+            uint256 payout = (betAmount * m * (100 - HOUSE_EDGE_PERCENT)) / 100;
+            if (currentBalance + netBet >= payout) {
+                return m;
             }
         }
-        
-        return 0; // House can't cover any multiplier
+        return 0;
     }
 
-    /// @notice Get the house balance (available to pay winners)
+    /// @notice Get the house balance
     function houseBalance() external view returns (uint256) {
         return token.balanceOf(address(this));
     }
@@ -204,6 +200,7 @@ contract TenTwentyFourX is ReentrancyGuard {
     function getBet(address player) external view returns (
         bytes32 dataHash,
         uint256 commitBlock,
+        uint256 betAmount,
         uint256 multiplier,
         bool claimed,
         uint256 blocksLeft
@@ -216,13 +213,17 @@ contract TenTwentyFourX is ReentrancyGuard {
                 left = expiry - block.number;
             }
         }
-        return (c.dataHash, c.commitBlock, c.multiplier, c.claimed, left);
+        return (c.dataHash, c.commitBlock, c.betAmount, c.multiplier, c.claimed, left);
     }
 
-    /// @notice Get the expected payout for a given multiplier (after house edge)
-    function getPayoutForMultiplier(uint256 multiplier) external view returns (uint256) {
-        require(_isValidMultiplier(multiplier), "Invalid multiplier");
-        return (BET_AMOUNT * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
+    /// @notice Get expected payout for a bet + multiplier combo
+    function getPayoutFor(uint256 betAmount, uint256 multiplier) external pure returns (uint256) {
+        return (betAmount * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
+    }
+
+    /// @notice Get all valid bet amounts
+    function getValidBets() external view returns (uint256[4] memory) {
+        return VALID_BETS;
     }
 
     /// @notice Get all valid multipliers
@@ -230,12 +231,16 @@ contract TenTwentyFourX is ReentrancyGuard {
         return VALID_MULTIPLIERS;
     }
 
-    /// @notice Check if a multiplier is valid (internal function)
+    function _isValidBet(uint256 betAmount) internal view returns (bool) {
+        for (uint256 i = 0; i < VALID_BETS.length; i++) {
+            if (VALID_BETS[i] == betAmount) return true;
+        }
+        return false;
+    }
+
     function _isValidMultiplier(uint256 multiplier) internal view returns (bool) {
         for (uint256 i = 0; i < VALID_MULTIPLIERS.length; i++) {
-            if (VALID_MULTIPLIERS[i] == multiplier) {
-                return true;
-            }
+            if (VALID_MULTIPLIERS[i] == multiplier) return true;
         }
         return false;
     }
