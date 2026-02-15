@@ -92,7 +92,7 @@ const Home: NextPage = () => {
   const luckyClickAddress = luckyClickContractData?.address;
 
   // Read allowance
-  const { data: allowance } = useScaffoldReadContract({
+  const { data: allowance, refetch: refetchAllowance } = useScaffoldReadContract({
     contractName: "CLAWD",
     functionName: "allowance",
     args: [connectedAddress, luckyClickAddress],
@@ -192,6 +192,8 @@ const Home: NextPage = () => {
         functionName: "approve",
         args: [luckyClickAddress, BET_AMOUNT * 5n],
       });
+      // Refetch allowance so UI immediately shows the action button
+      await refetchAllowance();
       notification.success("CLAWD approved!");
       setGameState("idle");
     } catch (e) {
@@ -199,7 +201,7 @@ const Home: NextPage = () => {
       notification.error(parseError(e));
       setGameState("idle");
     }
-  }, [connectedAddress, approveWrite, luckyClickAddress]);
+  }, [connectedAddress, approveWrite, luckyClickAddress, refetchAllowance]);
 
   const handleClick = useCallback(async () => {
     if (!connectedAddress || !publicClient) return;
