@@ -147,9 +147,14 @@ const Home: NextPage = () => {
     query: { enabled: !!connectedAddress },
   });
 
+  // Track whether we've done the initial bet restore (only check orphaned bets once on load)
+  const [hasInitialized, setHasInitialized] = useState(false);
+
   // Restore pending bet from localStorage on mount/connect, AND check on-chain state
   useEffect(() => {
-    if (!connectedAddress || !onChainBet) return;
+    if (!connectedAddress || !onChainBet || hasInitialized) return;
+    setHasInitialized(true);
+
     const [, onChainCommitBlock, onChainClaimed, blocksLeft] = onChainBet;
     const hasOnChainBet = Number(onChainCommitBlock) > 0 && !onChainClaimed;
 
@@ -160,19 +165,14 @@ const Home: NextPage = () => {
       setPendingSalt(pending.salt);
       setPendingCommitBlock(pending.commitBlock);
       setGameState("waiting");
-    } else if (hasOnChainBet) {
-      // On-chain bet exists but no localStorage — orphaned bet!
-      // Player lost their secret (different device, cleared storage, etc.)
-      // They can't reveal even if they won, so show forfeit option
+    } else if (hasOnChainBet && Number(blocksLeft) > 0) {
+      // On-chain bet exists but no localStorage — truly orphaned
+      // (different device, cleared storage, etc.)
       setPendingCommitBlock(Number(onChainCommitBlock));
-      if (Number(blocksLeft) === 0) {
-        // Expired — can just click again (contract allows it)
-        setGameState("idle");
-      } else {
-        setGameState("orphaned" as GameState);
-      }
+      setGameState("orphaned" as GameState);
     }
-  }, [connectedAddress, onChainBet]);
+    // If bet is expired or no on-chain bet, stay idle — player can just click
+  }, [connectedAddress, onChainBet, hasInitialized]);
 
   // Check win/loss when we have a pending bet and block has advanced
   useEffect(() => {
@@ -234,18 +234,6 @@ const Home: NextPage = () => {
 
   const handleClick = useCallback(async () => {
     if (!connectedAddress || !publicClient) return;
-
-    // Pre-flight: check if there's an active on-chain bet we need to forfeit first
-    if (onChainBet) {
-      const [, onChainCommitBlock, onChainClaimed] = onChainBet;
-      if (Number(onChainCommitBlock) > 0 && !onChainClaimed) {
-        // There's an active bet — show the orphaned state instead of hitting the contract
-        setPendingCommitBlock(Number(onChainCommitBlock));
-        setGameState("orphaned" as GameState);
-        notification.error("You have a pending bet. Forfeit it first to play again.");
-        return;
-      }
-    }
 
     setGameState("clicking");
     try {
