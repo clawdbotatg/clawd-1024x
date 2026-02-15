@@ -16,9 +16,10 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * 3. REVEAL (only if you won!): Submit secret + salt on-chain to claim payout.
  *    - Payout = 10,000 * multiplier * 98 / 100 (2% house edge)
  *
- * Examples:
- * - 2x: 1-in-2 chance, pays 19,600 CLAWD (98% of 20K)
- * - 1024x: 1-in-1024 chance, pays 10,035,200 CLAWD (98% of 10,240K)
+ * Economics:
+ * - 1% of every bet is burned forever (100 CLAWD per roll)
+ * - 2% house edge on winnings
+ * - Example: 2x pays 19,600 CLAWD. 1024x pays 10,035,200 CLAWD.
  *
  * The contract must be funded with CLAWD to pay out winners.
  * Anyone can fund the house by transferring CLAWD to the contract.
@@ -30,7 +31,11 @@ contract TenTwentyFourX is ReentrancyGuard {
 
     uint256 public constant BET_AMOUNT = 10_000 * 1e18;    // 10K CLAWD (18 decimals)
     uint256 public constant HOUSE_EDGE_PERCENT = 2;        // 2% house edge
+    uint256 public constant BURN_PERCENT = 1;              // 1% burn on every bet
     uint256 public constant REVEAL_WINDOW = 256;           // blocks before commitment expires
+    
+    // Burn address - 0x000000000000000000000000000000000000dEaD
+    address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     // Valid multipliers: powers of 2 from 2 to 1024
     uint256[10] public VALID_MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
@@ -49,11 +54,13 @@ contract TenTwentyFourX is ReentrancyGuard {
     uint256 public totalWins;
     uint256 public totalBetAmount;
     uint256 public totalPaidOut;
+    uint256 public totalBurned;
 
-    event Clicked(address indexed player, bytes32 dataHash, uint256 commitBlock, uint256 multiplier, uint256 payout);
+    event Clicked(address indexed player, bytes32 dataHash, uint256 commitBlock, uint256 multiplier, uint256 payout, uint256 burnAmount);
     event Won(address indexed player, bytes32 secret, bytes32 salt, uint256 multiplier, uint256 payout);
     event Forfeited(address indexed player, uint256 commitBlock);
     event HouseFunded(address indexed funder, uint256 amount);
+    event TokensBurned(uint256 amount);
 
     constructor(address _token) {
         require(_token != address(0), "Invalid token");
@@ -82,14 +89,20 @@ contract TenTwentyFourX is ReentrancyGuard {
         uint256 payout = (BET_AMOUNT * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
 
         // Must have enough house funds to pay a potential winner
-        // (We check current balance plus the bet being placed)
+        // House keeps 99% of bet (1% burned), so check with net amount
+        uint256 netBet = BET_AMOUNT - (BET_AMOUNT * BURN_PERCENT) / 100;
         require(
-            token.balanceOf(address(this)) + BET_AMOUNT >= payout,
+            token.balanceOf(address(this)) + netBet >= payout,
             "House underfunded for this multiplier"
         );
 
         // Take the bet
         token.safeTransferFrom(msg.sender, address(this), BET_AMOUNT);
+
+        // Burn 1% of bet
+        uint256 burnAmount = (BET_AMOUNT * BURN_PERCENT) / 100;
+        token.safeTransfer(BURN_ADDRESS, burnAmount);
+        totalBurned += burnAmount;
 
         commitments[msg.sender] = Commitment({
             dataHash: dataHash,
@@ -101,7 +114,8 @@ contract TenTwentyFourX is ReentrancyGuard {
         totalBets++;
         totalBetAmount += BET_AMOUNT;
 
-        emit Clicked(msg.sender, dataHash, block.number, multiplier, payout);
+        emit Clicked(msg.sender, dataHash, block.number, multiplier, payout, burnAmount);
+        emit TokensBurned(burnAmount);
     }
 
     /// @notice Reveal your secret to claim winnings (only call this if you won!)
@@ -173,7 +187,7 @@ contract TenTwentyFourX is ReentrancyGuard {
             uint256 payout = (BET_AMOUNT * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
             
             // If house can cover this payout (including the incoming bet)
-            if (currentBalance + BET_AMOUNT >= payout) {
+            if (currentBalance + BET_AMOUNT - (BET_AMOUNT * BURN_PERCENT) / 100 >= payout) {
                 return multiplier;
             }
         }

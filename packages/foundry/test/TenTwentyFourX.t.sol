@@ -49,6 +49,9 @@ contract TenTwentyFourXTest is Test {
 
         assertEq(game.totalBets(), 1);
         assertEq(game.totalBetAmount(), 10_000 * 1e18);
+        
+        // Check that 1% was burned
+        assertEq(game.totalBurned(), 100 * 1e18);
     }
 
     function testInvalidMultiplier() public {
@@ -93,7 +96,8 @@ contract TenTwentyFourXTest is Test {
 
         // Create game with smaller balance
         TenTwentyFourX smallGame = new TenTwentyFourX(address(token));
-        // Fund with 25K CLAWD + 10K bet = 35K total, should support 2x (needs 19.6K payout)
+        // Fund with 25K CLAWD. With 10K bet, 1% burned (100), 9,900 goes to house.
+        // Total available: 25K + 9.9K = 34.9K, should support 2x (needs 19.6K payout)
         // but not 4x (needs 39.2K payout)
         token.transfer(address(smallGame), 25_000 * 1e18);
         
@@ -206,6 +210,28 @@ contract TenTwentyFourXTest is Test {
         (, , , bool claimed, ) = game.getBet(player);
         assertTrue(claimed);
         vm.stopPrank();
+    }
+
+    function testBurnMechanism() public {
+        address burnAddress = 0x000000000000000000000000000000000000dEaD;
+        uint256 burnBalanceBefore = token.balanceOf(burnAddress);
+        
+        vm.startPrank(player);
+        token.approve(address(game), 10_000 * 1e18);
+
+        bytes32 secret = bytes32(uint256(42));
+        bytes32 salt = bytes32(uint256(123));
+        bytes32 hash = game.computeHash(secret, salt);
+
+        game.click(hash, 2);
+        vm.stopPrank();
+
+        // Check burn address received 1% (100 CLAWD)
+        uint256 burnBalanceAfter = token.balanceOf(burnAddress);
+        assertEq(burnBalanceAfter - burnBalanceBefore, 100 * 1e18);
+        
+        // Check totalBurned tracks correctly
+        assertEq(game.totalBurned(), 100 * 1e18);
     }
 
     function testHouseFunding() public view {
