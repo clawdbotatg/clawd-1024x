@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   8453: {
     LuckyClick: {
-      address: "0xc0520e84C4362bC0075f190e987417742d0D6814",
+      address: "0x1062eace4f3083c164796b9b2649ce6c25acebe6",
       abi: [
         {
           type: "constructor",
@@ -95,6 +95,13 @@ const deployedContracts = {
             },
           ],
           stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "forfeit",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -307,6 +314,25 @@ const deployedContracts = {
               type: "bytes32",
               indexed: false,
               internalType: "bytes32",
+            },
+            {
+              name: "commitBlock",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Forfeited",
+          inputs: [
+            {
+              name: "player",
+              type: "address",
+              indexed: true,
+              internalType: "address",
             },
             {
               name: "commitBlock",

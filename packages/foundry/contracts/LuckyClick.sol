@@ -47,6 +47,7 @@ contract LuckyClick is ReentrancyGuard {
 
     event Clicked(address indexed player, bytes32 dataHash, uint256 commitBlock);
     event Won(address indexed player, bytes32 secret, bytes32 salt, uint256 payout);
+    event Forfeited(address indexed player, uint256 commitBlock);
     event HouseFunded(address indexed funder, uint256 amount);
 
     constructor(address _token) {
@@ -58,11 +59,15 @@ contract LuckyClick is ReentrancyGuard {
     /// @param dataHash keccak256(abi.encodePacked(secret, salt))
     function click(bytes32 dataHash) external nonReentrant {
         require(dataHash != bytes32(0), "Empty hash");
+        // Allow re-betting if: no previous bet, previous was claimed/forfeited,
+        // previous expired (>256 blocks), OR previous is at least 1 block old
+        // (player forfeits any unclaimed win by placing a new bet)
+        Commitment memory prev = commitments[msg.sender];
         require(
-            commitments[msg.sender].commitBlock == 0 || 
-            commitments[msg.sender].claimed ||
-            block.number > commitments[msg.sender].commitBlock + REVEAL_WINDOW,
-            "Active bet exists"
+            prev.commitBlock == 0 || 
+            prev.claimed ||
+            block.number > prev.commitBlock,
+            "Wait one block before re-betting"
         );
 
         // Must have enough house funds to pay a potential winner
@@ -116,6 +121,18 @@ contract LuckyClick is ReentrancyGuard {
         token.safeTransfer(msg.sender, WIN_AMOUNT);
 
         emit Won(msg.sender, secret, salt, WIN_AMOUNT);
+    }
+
+    /// @notice Forfeit your current bet so you can play again immediately.
+    /// @dev The player voluntarily abandons any potential winnings. Their 10K bet stays in the house.
+    function forfeit() external nonReentrant {
+        Commitment storage c = commitments[msg.sender];
+        require(c.commitBlock != 0, "No bet found");
+        require(!c.claimed, "Already claimed");
+        require(block.number > c.commitBlock, "Wait one block");
+
+        c.claimed = true;
+        emit Forfeited(msg.sender, c.commitBlock);
     }
 
     /// @notice Compute the commitment hash (use this to generate your hash off-chain too)

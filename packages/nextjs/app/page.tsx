@@ -42,14 +42,18 @@ function clearPending(address: string) {
 
 function randomBytes32(): `0x${string}` {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return ("0x" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")) as `0x${string}`;
+  return ("0x" +
+    Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("")) as `0x${string}`;
 }
 
 function parseError(e: unknown): string {
   const msg = (e as Error)?.message || String(e);
   if (msg.includes("user rejected") || msg.includes("User denied")) return "Transaction cancelled";
   if (msg.includes("House underfunded")) return "House doesn't have enough CLAWD to pay out. Try again later.";
-  if (msg.includes("Active bet exists")) return "You already have an active bet. Check your result first!";
+  if (msg.includes("Active bet exists") || msg.includes("Wait one block before re-betting"))
+    return "You have a pending bet. Please wait a moment and try again.";
   if (msg.includes("Bet expired")) return "Your bet expired. Place a new one!";
   if (msg.includes("Not a winner")) return "Not a winning reveal";
   if (msg.includes("insufficient allowance") || msg.includes("ERC20InsufficientAllowance"))
@@ -57,7 +61,17 @@ function parseError(e: unknown): string {
   return "Transaction failed";
 }
 
-type GameState = "idle" | "approving" | "clicking" | "waiting" | "won" | "lost" | "claiming" | "expired";
+type GameState =
+  | "idle"
+  | "approving"
+  | "clicking"
+  | "waiting"
+  | "won"
+  | "lost"
+  | "claiming"
+  | "expired"
+  | "orphaned"
+  | "forfeiting";
 
 const Home: NextPage = () => {
   const { address: connectedAddress, chain } = useAccount();
@@ -74,6 +88,7 @@ const Home: NextPage = () => {
   const { writeContractAsync: approveWrite } = useScaffoldWriteContract("CLAWD");
   const { writeContractAsync: clickWrite } = useScaffoldWriteContract("LuckyClick");
   const { writeContractAsync: revealWrite } = useScaffoldWriteContract("LuckyClick");
+  const { writeContractAsync: forfeitWrite } = useScaffoldWriteContract("LuckyClick");
 
   // Read user's CLAWD balance
   const { data: clawdBalance } = useScaffoldReadContract({
@@ -124,17 +139,40 @@ const Home: NextPage = () => {
     watch: true,
   });
 
-  // Restore pending bet from localStorage on mount/connect
+  // Read on-chain bet state
+  const { data: onChainBet, refetch: refetchBet } = useScaffoldReadContract({
+    contractName: "LuckyClick",
+    functionName: "getBet",
+    args: [connectedAddress],
+    query: { enabled: !!connectedAddress },
+  });
+
+  // Restore pending bet from localStorage on mount/connect, AND check on-chain state
   useEffect(() => {
-    if (!connectedAddress) return;
+    if (!connectedAddress || !onChainBet) return;
+    const [, onChainCommitBlock, onChainClaimed, blocksLeft] = onChainBet;
+    const hasOnChainBet = Number(onChainCommitBlock) > 0 && !onChainClaimed;
+
     const pending = loadPending(connectedAddress);
     if (pending) {
+      // We have localStorage data — use it
       setPendingSecret(pending.secret);
       setPendingSalt(pending.salt);
       setPendingCommitBlock(pending.commitBlock);
       setGameState("waiting");
+    } else if (hasOnChainBet) {
+      // On-chain bet exists but no localStorage — orphaned bet!
+      // Player lost their secret (different device, cleared storage, etc.)
+      // They can't reveal even if they won, so show forfeit option
+      setPendingCommitBlock(Number(onChainCommitBlock));
+      if (Number(blocksLeft) === 0) {
+        // Expired — can just click again (contract allows it)
+        setGameState("idle");
+      } else {
+        setGameState("orphaned" as GameState);
+      }
     }
-  }, [connectedAddress]);
+  }, [connectedAddress, onChainBet]);
 
   // Check win/loss when we have a pending bet and block has advanced
   useEffect(() => {
@@ -155,7 +193,9 @@ const Home: NextPage = () => {
         const block = await publicClient.getBlock({ blockNumber: BigInt(pendingCommitBlock) });
         if (!block.hash) return;
 
-        const randomSeed = keccak256(encodePacked(["bytes32", "bytes32"], [pendingSecret as `0x${string}`, block.hash]));
+        const randomSeed = keccak256(
+          encodePacked(["bytes32", "bytes32"], [pendingSecret as `0x${string}`, block.hash]),
+        );
         const isWinner = BigInt(randomSeed) % 10n === 0n;
 
         if (isWinner) {
@@ -194,6 +234,19 @@ const Home: NextPage = () => {
 
   const handleClick = useCallback(async () => {
     if (!connectedAddress || !publicClient) return;
+
+    // Pre-flight: check if there's an active on-chain bet we need to forfeit first
+    if (onChainBet) {
+      const [, onChainCommitBlock, onChainClaimed] = onChainBet;
+      if (Number(onChainCommitBlock) > 0 && !onChainClaimed) {
+        // There's an active bet — show the orphaned state instead of hitting the contract
+        setPendingCommitBlock(Number(onChainCommitBlock));
+        setGameState("orphaned" as GameState);
+        notification.error("You have a pending bet. Forfeit it first to play again.");
+        return;
+      }
+    }
+
     setGameState("clicking");
     try {
       const secret = randomBytes32();
@@ -223,7 +276,7 @@ const Home: NextPage = () => {
       notification.error(parseError(e));
       setGameState("idle");
     }
-  }, [connectedAddress, clickWrite, publicClient]);
+  }, [connectedAddress, clickWrite, publicClient, onChainBet]);
 
   const handleClaim = useCallback(async () => {
     if (!connectedAddress || !pendingSecret || !pendingSalt) return;
@@ -253,6 +306,25 @@ const Home: NextPage = () => {
     setPendingCommitBlock(null);
     if (connectedAddress) clearPending(connectedAddress);
   }, [connectedAddress]);
+
+  const handleForfeit = useCallback(async () => {
+    if (!connectedAddress) return;
+    setGameState("forfeiting");
+    try {
+      await forfeitWrite({ functionName: "forfeit" });
+      clearPending(connectedAddress);
+      setPendingSecret(null);
+      setPendingSalt(null);
+      setPendingCommitBlock(null);
+      await refetchBet();
+      setGameState("idle");
+      notification.success("Bet forfeited. You can play again!");
+    } catch (e) {
+      console.error("Forfeit failed:", e);
+      notification.error(parseError(e));
+      setGameState("orphaned");
+    }
+  }, [connectedAddress, forfeitWrite, refetchBet]);
 
   const formatClawd = (amount: bigint | undefined) => {
     if (!amount) return "0";
@@ -418,6 +490,35 @@ const Home: NextPage = () => {
               </button>
             </>
           )}
+
+          {/* Orphaned Bet State — on-chain bet exists but localStorage lost */}
+          {(gameState === "orphaned" || gameState === "forfeiting") && (
+            <>
+              <div className="text-6xl mb-4">🔒</div>
+              <h2 className="card-title text-2xl">Active Bet Found</h2>
+              <p className="text-sm opacity-70">
+                You have a pending bet on-chain, but your session data was lost (different device or cleared browser
+                data). You{"'"}ll need to forfeit this bet to play again.
+              </p>
+              <p className="text-xs opacity-50 mt-1">
+                Your 10K CLAWD bet stays in the house. This is a one-time clear.
+              </p>
+              <button
+                className="btn btn-warning btn-lg w-full mt-4"
+                disabled={gameState === "forfeiting"}
+                onClick={handleForfeit}
+              >
+                {gameState === "forfeiting" ? (
+                  <>
+                    <span className="loading loading-spinner"></span>
+                    Forfeiting...
+                  </>
+                ) : (
+                  "🗑️ Forfeit & Play Again"
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -435,8 +536,8 @@ const Home: NextPage = () => {
             <div className="flex gap-3 items-start">
               <span className="badge badge-primary badge-sm mt-1">2</span>
               <p>
-                <span className="font-bold">Check</span> — After 1 block, we mix your secret with the blockhash. 1 in
-                10 chance to win!
+                <span className="font-bold">Check</span> — After 1 block, we mix your secret with the blockhash. 1 in 10
+                chance to win!
               </p>
             </div>
             <div className="flex gap-3 items-start">
