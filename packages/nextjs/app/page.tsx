@@ -13,18 +13,18 @@ import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { notification } from "~~/utils/scaffold-eth";
 
 const BET_AMOUNT = parseEther("10000");
-const WIN_AMOUNT = parseEther("90000");
+const VALID_MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
 
 // localStorage helpers
-const STORAGE_KEY = "lucky-click-pending";
+const STORAGE_KEY = "1024x-pending";
 
-function savePending(address: string, secret: string, salt: string, commitBlock: number) {
+function savePending(address: string, secret: string, salt: string, commitBlock: number, multiplier: number) {
   try {
-    localStorage.setItem(`${STORAGE_KEY}-${address}`, JSON.stringify({ secret, salt, commitBlock }));
+    localStorage.setItem(`${STORAGE_KEY}-${address}`, JSON.stringify({ secret, salt, commitBlock, multiplier }));
   } catch {}
 }
 
-function loadPending(address: string): { secret: string; salt: string; commitBlock: number } | null {
+function loadPending(address: string): { secret: string; salt: string; commitBlock: number; multiplier: number } | null {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY}-${address}`);
     if (!raw) return null;
@@ -51,7 +51,8 @@ function randomBytes32(): `0x${string}` {
 function parseError(e: unknown): string {
   const msg = (e as Error)?.message || String(e);
   if (msg.includes("user rejected") || msg.includes("User denied")) return "Transaction cancelled";
-  if (msg.includes("House underfunded")) return "House doesn't have enough CLAWD to pay out. Try again later.";
+  if (msg.includes("House underfunded")) return "House doesn't have enough CLAWD for this multiplier. Try a lower multiplier.";
+  if (msg.includes("Invalid multiplier")) return "Invalid multiplier selected";
   if (msg.includes("Active bet exists") || msg.includes("Wait one block before re-betting"))
     return "You have a pending bet. Please wait a moment and try again.";
   if (msg.includes("Bet expired")) return "Your bet expired. Place a new one!";
@@ -70,15 +71,16 @@ const Home: NextPage = () => {
   const isWrongNetwork = chain?.id !== targetNetwork.id;
 
   const [gameState, setGameState] = useState<GameState>("idle");
+  const [selectedMultiplier, setSelectedMultiplier] = useState<number>(2);
   const [pendingSecret, setPendingSecret] = useState<string | null>(null);
   const [pendingSalt, setPendingSalt] = useState<string | null>(null);
   const [pendingCommitBlock, setPendingCommitBlock] = useState<number | null>(null);
+  const [pendingMultiplier, setPendingMultiplier] = useState<number | null>(null);
 
   // Contract write hooks
   const { writeContractAsync: approveWrite } = useScaffoldWriteContract("CLAWD");
-  const { writeContractAsync: clickWrite } = useScaffoldWriteContract("LuckyClick");
-  const { writeContractAsync: revealWrite } = useScaffoldWriteContract("LuckyClick");
-  // forfeitWrite removed — forfeit() exists on-chain but not in UI
+  const { writeContractAsync: clickWrite } = useScaffoldWriteContract("TenTwentyFourX");
+  const { writeContractAsync: revealWrite } = useScaffoldWriteContract("TenTwentyFourX");
 
   // Read user's CLAWD balance
   const { data: clawdBalance } = useScaffoldReadContract({
@@ -87,43 +89,55 @@ const Home: NextPage = () => {
     args: [connectedAddress],
   });
 
-  // Get the LuckyClick contract address
-  const { data: luckyClickContractData } = useDeployedContractInfo("LuckyClick");
-  const luckyClickAddress = luckyClickContractData?.address;
+  // Get the TenTwentyFourX contract address
+  const { data: contractData } = useDeployedContractInfo("TenTwentyFourX");
+  const contractAddress = contractData?.address;
 
   // Read allowance
   const { data: allowance, refetch: refetchAllowance } = useScaffoldReadContract({
     contractName: "CLAWD",
     functionName: "allowance",
-    args: [connectedAddress, luckyClickAddress],
-    query: { enabled: !!connectedAddress && !!luckyClickAddress },
+    args: [connectedAddress, contractAddress],
+    query: { enabled: !!connectedAddress && !!contractAddress },
   });
 
   const needsApproval = !allowance || allowance < BET_AMOUNT;
 
-  // House balance
+  // House balance and max multiplier
   const { data: houseBalance } = useScaffoldReadContract({
-    contractName: "LuckyClick",
+    contractName: "TenTwentyFourX",
     functionName: "houseBalance",
+  });
+
+  const { data: maxMultiplier } = useScaffoldReadContract({
+    contractName: "TenTwentyFourX",
+    functionName: "maxMultiplier",
+  });
+
+  // Get payout for selected multiplier
+  const { data: selectedPayout } = useScaffoldReadContract({
+    contractName: "TenTwentyFourX",
+    functionName: "getPayoutForMultiplier",
+    args: [BigInt(selectedMultiplier)],
   });
 
   // Stats
   const { data: totalBets } = useScaffoldReadContract({
-    contractName: "LuckyClick",
+    contractName: "TenTwentyFourX",
     functionName: "totalBets",
   });
   const { data: totalWins } = useScaffoldReadContract({
-    contractName: "LuckyClick",
+    contractName: "TenTwentyFourX",
     functionName: "totalWins",
   });
   const { data: totalPaidOut } = useScaffoldReadContract({
-    contractName: "LuckyClick",
+    contractName: "TenTwentyFourX",
     functionName: "totalPaidOut",
   });
 
   // Recent wins
   const { data: winEvents } = useScaffoldEventHistory({
-    contractName: "LuckyClick",
+    contractName: "TenTwentyFourX",
     eventName: "Won",
     fromBlock: 0n,
     watch: true,
@@ -137,15 +151,14 @@ const Home: NextPage = () => {
       setPendingSecret(pending.secret);
       setPendingSalt(pending.salt);
       setPendingCommitBlock(pending.commitBlock);
+      setPendingMultiplier(pending.multiplier);
       setGameState("waiting");
     }
-    // If no localStorage data, stay idle — player can just click again.
-    // Contract allows re-betting after 1 block, so old on-chain bets don't matter.
   }, [connectedAddress]);
 
   // Check win/loss when we have a pending bet and block has advanced
   useEffect(() => {
-    if (gameState !== "waiting" || !pendingSecret || !pendingCommitBlock || !publicClient) return;
+    if (gameState !== "waiting" || !pendingSecret || !pendingCommitBlock || !pendingMultiplier || !publicClient) return;
 
     const checkResult = async () => {
       try {
@@ -165,7 +178,7 @@ const Home: NextPage = () => {
         const randomSeed = keccak256(
           encodePacked(["bytes32", "bytes32"], [pendingSecret as `0x${string}`, block.hash]),
         );
-        const isWinner = BigInt(randomSeed) % 10n === 0n;
+        const isWinner = BigInt(randomSeed) % BigInt(pendingMultiplier) === 0n;
 
         if (isWinner) {
           setGameState("won");
@@ -181,7 +194,7 @@ const Home: NextPage = () => {
     checkResult();
     const interval = setInterval(checkResult, 2000);
     return () => clearInterval(interval);
-  }, [gameState, pendingSecret, pendingCommitBlock, publicClient, connectedAddress]);
+  }, [gameState, pendingSecret, pendingCommitBlock, pendingMultiplier, publicClient, connectedAddress]);
 
   const handleApprove = useCallback(async () => {
     if (!connectedAddress) return;
@@ -190,7 +203,7 @@ const Home: NextPage = () => {
       // Approve 5 bets worth at a time (not infinite!)
       await approveWrite({
         functionName: "approve",
-        args: [luckyClickAddress, BET_AMOUNT * 5n],
+        args: [contractAddress, BET_AMOUNT * 5n],
       });
       // Refetch allowance so UI immediately shows the action button
       await refetchAllowance();
@@ -201,7 +214,7 @@ const Home: NextPage = () => {
       notification.error(parseError(e));
       setGameState("idle");
     }
-  }, [connectedAddress, approveWrite, luckyClickAddress, refetchAllowance]);
+  }, [connectedAddress, approveWrite, contractAddress, refetchAllowance]);
 
   const handleClick = useCallback(async () => {
     if (!connectedAddress || !publicClient) return;
@@ -216,26 +229,27 @@ const Home: NextPage = () => {
 
       const txHash = await clickWrite({
         functionName: "click",
-        args: [dataHash],
+        args: [dataHash, BigInt(selectedMultiplier)],
       });
 
-      // Get commit block from tx receipt — saves IMMEDIATELY, no extra RPC call
+      // Get commit block from tx receipt
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
       const commitBlock = Number(receipt.blockNumber);
 
-      // Save to localStorage FIRST before any state that could trigger re-renders
-      savePending(connectedAddress, secret, salt, commitBlock);
+      // Save to localStorage
+      savePending(connectedAddress, secret, salt, commitBlock, selectedMultiplier);
       setPendingSecret(secret);
       setPendingSalt(salt);
       setPendingCommitBlock(commitBlock);
+      setPendingMultiplier(selectedMultiplier);
       setGameState("waiting");
-      notification.success("Bet placed! Checking your luck...");
+      notification.success(`${selectedMultiplier}x bet placed! Rolling the dice...`);
     } catch (e) {
       console.error("Click failed:", e);
       notification.error(parseError(e));
       setGameState("idle");
     }
-  }, [connectedAddress, clickWrite, publicClient]);
+  }, [connectedAddress, clickWrite, publicClient, selectedMultiplier]);
 
   const handleClaim = useCallback(async () => {
     if (!connectedAddress || !pendingSecret || !pendingSalt) return;
@@ -249,8 +263,9 @@ const Home: NextPage = () => {
       setPendingSecret(null);
       setPendingSalt(null);
       setPendingCommitBlock(null);
+      setPendingMultiplier(null);
       setGameState("idle");
-      notification.success("🎉 90,000 CLAWD claimed!");
+      notification.success("🎉 CLAWD claimed!");
     } catch (e) {
       console.error("Claim failed:", e);
       notification.error(parseError(e));
@@ -263,11 +278,9 @@ const Home: NextPage = () => {
     setPendingSecret(null);
     setPendingSalt(null);
     setPendingCommitBlock(null);
+    setPendingMultiplier(null);
     if (connectedAddress) clearPending(connectedAddress);
   }, [connectedAddress]);
-
-  // forfeit() exists on-chain as an escape hatch but we don't surface it in the UI.
-  // Contract allows re-betting after 1 block, so players can always just click again.
 
   const formatClawd = (amount: bigint | undefined) => {
     if (!amount) return "0";
@@ -275,10 +288,10 @@ const Home: NextPage = () => {
   };
 
   const hasEnoughBalance = clawdBalance !== undefined && clawdBalance >= BET_AMOUNT;
-  const houseCanPay = houseBalance !== undefined && houseBalance >= WIN_AMOUNT;
+  const isMultiplierAffordable = !maxMultiplier || selectedMultiplier <= maxMultiplier;
 
   return (
-    <div className="flex flex-col items-center gap-6 py-8 px-4 min-h-screen">
+    <div className="flex flex-col items-center gap-6 py-8 px-4 min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
       {/* Stats Bar */}
       <div className="stats stats-vertical sm:stats-horizontal shadow bg-base-100 w-full max-w-2xl">
         <div className="stat">
@@ -302,17 +315,57 @@ const Home: NextPage = () => {
       </div>
 
       {/* Main Game Card */}
-      <div className="card bg-base-100 shadow-xl w-full max-w-md">
+      <div className="card bg-base-100 shadow-xl w-full max-w-lg border-2 border-purple-300">
         <div className="card-body items-center text-center">
           {/* Idle State */}
           {(gameState === "idle" || gameState === "approving" || gameState === "clicking") && (
             <>
-              <div className="text-6xl mb-2">🦞</div>
-              <h2 className="card-title text-3xl font-black">LUCKY CLICK</h2>
+              <div className="text-6xl mb-2">🎰</div>
+              <h1 className="card-title text-4xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                1024x
+              </h1>
               <p className="text-sm opacity-70 mb-4">
-                Pay <span className="font-bold">10,000 CLAWD</span> • 1 in 10 chance to win{" "}
-                <span className="font-bold text-success">90,000 CLAWD</span>
+                Pay <span className="font-bold">10,000 CLAWD</span> • Variable odds from 2x to 1024x
               </p>
+
+              {/* Multiplier Selector */}
+              {gameState === "idle" && (
+                <div className="w-full max-w-xs mb-4">
+                  <label className="label">
+                    <span className="label-text font-semibold">Choose Your Multiplier</span>
+                  </label>
+                  <select 
+                    className="select select-bordered w-full font-mono"
+                    value={selectedMultiplier}
+                    onChange={(e) => setSelectedMultiplier(Number(e.target.value))}
+                  >
+                    {VALID_MULTIPLIERS.map(mult => {
+                      const payout = (10000 * mult * 98) / 100;
+                      const winChance = `1 in ${mult}`;
+                      const isAffordable = !maxMultiplier || mult <= maxMultiplier;
+                      return (
+                        <option 
+                          key={mult} 
+                          value={mult}
+                          disabled={!isAffordable}
+                        >
+                          {mult}x • {winChance} • {payout.toLocaleString()} CLAWD{!isAffordable ? " (House can&apos;t cover)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <div className="label">
+                    <span className="label-text-alt">
+                      {selectedPayout && (
+                        <>
+                          Win: <span className="font-bold text-success">{formatClawd(selectedPayout)} CLAWD</span> • 
+                          Chance: <span className="font-bold">1 in {selectedMultiplier}</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {connectedAddress && (
                 <div className="text-sm opacity-60 mb-2">
@@ -332,9 +385,9 @@ const Home: NextPage = () => {
                 <div className="alert alert-warning">
                   <span>You need at least 10,000 CLAWD to play</span>
                 </div>
-              ) : !houseCanPay ? (
+              ) : !isMultiplierAffordable ? (
                 <div className="alert alert-warning">
-                  <span>House is low on funds. Try again later.</span>
+                  <span>House can&apos;t cover this multiplier. Choose a lower one.</span>
                 </div>
               ) : needsApproval ? (
                 <button
@@ -353,17 +406,17 @@ const Home: NextPage = () => {
                 </button>
               ) : (
                 <button
-                  className="btn btn-primary btn-lg w-full text-xl"
+                  className="btn btn-primary btn-lg w-full text-xl bg-gradient-to-r from-purple-600 to-pink-600 border-none"
                   disabled={gameState === "clicking"}
                   onClick={handleClick}
                 >
                   {gameState === "clicking" ? (
                     <>
                       <span className="loading loading-spinner"></span>
-                      Placing Bet...
+                      Rolling Dice...
                     </>
                   ) : (
-                    "🎰 CLICK FOR 10K"
+                    `🎲 ROLL ${selectedMultiplier}x`
                   )}
                 </button>
               )}
@@ -374,8 +427,10 @@ const Home: NextPage = () => {
           {gameState === "waiting" && (
             <>
               <div className="text-6xl mb-4 animate-bounce">🎲</div>
-              <h2 className="card-title text-2xl">Checking your luck...</h2>
-              <p className="text-sm opacity-70">Waiting for the next block to determine your fate</p>
+              <h2 className="card-title text-2xl">Rolling the dice...</h2>
+              <p className="text-sm opacity-70">
+                {pendingMultiplier}x bet • Waiting for block confirmation
+              </p>
               <span className="loading loading-dots loading-lg text-primary mt-4"></span>
             </>
           )}
@@ -384,9 +439,10 @@ const Home: NextPage = () => {
           {(gameState === "won" || gameState === "claiming") && (
             <>
               <div className="text-6xl mb-4 animate-pulse">🎉</div>
-              <h2 className="card-title text-3xl text-success font-black">YOU WON!</h2>
+              <h2 className="card-title text-3xl text-success font-black">JACKPOT!</h2>
               <p className="text-lg font-bold">
-                Claim <span className="text-success">90,000 CLAWD</span>
+                {pendingMultiplier}x multiplier hit! Claim{" "}
+                <span className="text-success">{formatClawd(selectedPayout)} CLAWD</span>
               </p>
               <p className="text-xs opacity-60 mt-1">
                 Reveal your secret on-chain to collect your prize.
@@ -404,7 +460,7 @@ const Home: NextPage = () => {
                     Claiming...
                   </>
                 ) : (
-                  "🏆 CLAIM 90,000 CLAWD"
+                  "🏆 CLAIM REWARD"
                 )}
               </button>
             </>
@@ -414,8 +470,10 @@ const Home: NextPage = () => {
           {gameState === "lost" && (
             <>
               <div className="text-6xl mb-4">😤</div>
-              <h2 className="card-title text-2xl">Not this time!</h2>
-              <p className="text-sm opacity-70">You lost 10,000 CLAWD. The house wins this round.</p>
+              <h2 className="card-title text-2xl">Better luck next time!</h2>
+              <p className="text-sm opacity-70">
+                Your {pendingMultiplier}x bet didn&apos;t hit. Lost 10,000 CLAWD.
+              </p>
               <button className="btn btn-primary btn-lg w-full mt-4" onClick={handlePlayAgain}>
                 🔄 Try Again
               </button>
@@ -433,55 +491,59 @@ const Home: NextPage = () => {
               </button>
             </>
           )}
-
-          {/* No orphaned bet UI — contract allows re-betting after 1 block */}
         </div>
       </div>
 
       {/* How It Works */}
-      <div className="card bg-base-100 shadow-xl w-full max-w-md">
+      <div className="card bg-base-100 shadow-xl w-full max-w-lg">
         <div className="card-body">
-          <h2 className="card-title text-lg">How It Works</h2>
+          <h2 className="card-title text-lg">🎰 How It Works</h2>
           <div className="space-y-2 text-sm">
             <div className="flex gap-3 items-start">
               <span className="badge badge-primary badge-sm mt-1">1</span>
               <p>
-                <span className="font-bold">Click</span> — Pay 10,000 CLAWD. Your secret is committed on-chain.
+                <span className="font-bold">Choose</span> — Pick your multiplier from 2x to 1024x. Higher multipliers = lower chance but bigger payouts!
               </p>
             </div>
             <div className="flex gap-3 items-start">
               <span className="badge badge-primary badge-sm mt-1">2</span>
               <p>
-                <span className="font-bold">Check</span> — After 1 block, we mix your secret with the blockhash. 1 in 10
-                chance to win!
+                <span className="font-bold">Roll</span> — Pay 10,000 CLAWD. Your secret is committed on-chain.
               </p>
             </div>
             <div className="flex gap-3 items-start">
               <span className="badge badge-primary badge-sm mt-1">3</span>
               <p>
-                <span className="font-bold">Claim</span> — If you won, reveal on-chain to collect 90,000 CLAWD. If you
-                lost, no action needed.
+                <span className="font-bold">Check</span> — After 1 block, we mix your secret with the blockhash. 1-in-N chance for Nx payout!
+              </p>
+            </div>
+            <div className="flex gap-3 items-start">
+              <span className="badge badge-primary badge-sm mt-1">4</span>
+              <p>
+                <span className="font-bold">Claim</span> — If you hit the multiplier, reveal on-chain to collect your winnings!
               </p>
             </div>
           </div>
           <div className="divider my-1"></div>
           <p className="text-xs opacity-50">
-            House edge: 10% • Commit-reveal ensures fairness — neither you nor the blockchain can predict the result at
-            commit time.
+            House edge: 2% • Examples: 2x pays 19,600 CLAWD, 1024x pays 10,035,200 CLAWD • Commit-reveal ensures provable fairness.
           </p>
         </div>
       </div>
 
       {/* Recent Wins */}
       {winEvents && winEvents.length > 0 && (
-        <div className="card bg-base-100 shadow-xl w-full max-w-md">
+        <div className="card bg-base-100 shadow-xl w-full max-w-lg">
           <div className="card-body">
             <h2 className="card-title text-lg">🏆 Recent Winners</h2>
             <div className="space-y-2">
               {winEvents.slice(0, 10).map((event, i) => (
                 <div key={i} className="flex items-center justify-between p-2 bg-success/10 rounded-lg">
                   <Address address={event.args.player} />
-                  <span className="font-bold text-success">+90,000 🦞</span>
+                  <div className="text-right">
+                    <div className="font-bold text-success">+{formatClawd(event.args.payout)} 🦞</div>
+                    <div className="text-xs opacity-60">{event.args.multiplier}x hit!</div>
+                  </div>
                 </div>
               ))}
             </div>
