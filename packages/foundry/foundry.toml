@@ -8,7 +8,7 @@ fs_permissions = [{ access = "read-write", path = "./"}]
 [rpc_endpoints]
 default_network = "https://base-mainnet.g.alchemy.com/v2/8GVG8WjDs-sGFRr6Rm839"
 
-mainnet = "https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}"
+mainnet = "https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 sepolia = "https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 arbitrum = "https://arb-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 arbitrumSepolia = "https://arb-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
@@ -20,7 +20,7 @@ polygonZkEvm = "https://zkevm-rpc.com"
 polygonZkEvmTestnet = "https://rpc.public.zkevm-test.net"
 gnosis = "https://rpc.gnosischain.com"
 chiado = "https://rpc.chiadochain.net"
-base = "https://mainnet.base.org"
+base = "https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 baseSepolia = "https://sepolia.base.org"
 scrollSepolia = "https://sepolia-rpc.scroll.io"
 scroll = "https://rpc.scroll.io"
