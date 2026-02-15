@@ -61,17 +61,7 @@ function parseError(e: unknown): string {
   return "Transaction failed";
 }
 
-type GameState =
-  | "idle"
-  | "approving"
-  | "clicking"
-  | "waiting"
-  | "won"
-  | "lost"
-  | "claiming"
-  | "expired"
-  | "orphaned"
-  | "forfeiting";
+type GameState = "idle" | "approving" | "clicking" | "waiting" | "won" | "lost" | "claiming" | "expired";
 
 const Home: NextPage = () => {
   const { address: connectedAddress, chain } = useAccount();
@@ -88,7 +78,7 @@ const Home: NextPage = () => {
   const { writeContractAsync: approveWrite } = useScaffoldWriteContract("CLAWD");
   const { writeContractAsync: clickWrite } = useScaffoldWriteContract("LuckyClick");
   const { writeContractAsync: revealWrite } = useScaffoldWriteContract("LuckyClick");
-  const { writeContractAsync: forfeitWrite } = useScaffoldWriteContract("LuckyClick");
+  // forfeitWrite removed — forfeit() exists on-chain but not in UI
 
   // Read user's CLAWD balance
   const { data: clawdBalance } = useScaffoldReadContract({
@@ -139,40 +129,19 @@ const Home: NextPage = () => {
     watch: true,
   });
 
-  // Read on-chain bet state
-  const { data: onChainBet, refetch: refetchBet } = useScaffoldReadContract({
-    contractName: "LuckyClick",
-    functionName: "getBet",
-    args: [connectedAddress],
-    query: { enabled: !!connectedAddress },
-  });
-
-  // Track whether we've done the initial bet restore (only check orphaned bets once on load)
-  const [hasInitialized, setHasInitialized] = useState(false);
-
-  // Restore pending bet from localStorage on mount/connect, AND check on-chain state
+  // Restore pending bet from localStorage on mount/connect
   useEffect(() => {
-    if (!connectedAddress || !onChainBet || hasInitialized) return;
-    setHasInitialized(true);
-
-    const [, onChainCommitBlock, onChainClaimed, blocksLeft] = onChainBet;
-    const hasOnChainBet = Number(onChainCommitBlock) > 0 && !onChainClaimed;
-
+    if (!connectedAddress) return;
     const pending = loadPending(connectedAddress);
     if (pending) {
-      // We have localStorage data — use it
       setPendingSecret(pending.secret);
       setPendingSalt(pending.salt);
       setPendingCommitBlock(pending.commitBlock);
       setGameState("waiting");
-    } else if (hasOnChainBet && Number(blocksLeft) > 0) {
-      // On-chain bet exists but no localStorage — truly orphaned
-      // (different device, cleared storage, etc.)
-      setPendingCommitBlock(Number(onChainCommitBlock));
-      setGameState("orphaned" as GameState);
     }
-    // If bet is expired or no on-chain bet, stay idle — player can just click
-  }, [connectedAddress, onChainBet, hasInitialized]);
+    // If no localStorage data, stay idle — player can just click again.
+    // Contract allows re-betting after 1 block, so old on-chain bets don't matter.
+  }, [connectedAddress]);
 
   // Check win/loss when we have a pending bet and block has advanced
   useEffect(() => {
@@ -264,7 +233,7 @@ const Home: NextPage = () => {
       notification.error(parseError(e));
       setGameState("idle");
     }
-  }, [connectedAddress, clickWrite, publicClient, onChainBet]);
+  }, [connectedAddress, clickWrite, publicClient]);
 
   const handleClaim = useCallback(async () => {
     if (!connectedAddress || !pendingSecret || !pendingSalt) return;
@@ -295,24 +264,8 @@ const Home: NextPage = () => {
     if (connectedAddress) clearPending(connectedAddress);
   }, [connectedAddress]);
 
-  const handleForfeit = useCallback(async () => {
-    if (!connectedAddress) return;
-    setGameState("forfeiting");
-    try {
-      await forfeitWrite({ functionName: "forfeit" });
-      clearPending(connectedAddress);
-      setPendingSecret(null);
-      setPendingSalt(null);
-      setPendingCommitBlock(null);
-      await refetchBet();
-      setGameState("idle");
-      notification.success("Bet forfeited. You can play again!");
-    } catch (e) {
-      console.error("Forfeit failed:", e);
-      notification.error(parseError(e));
-      setGameState("orphaned");
-    }
-  }, [connectedAddress, forfeitWrite, refetchBet]);
+  // forfeit() exists on-chain as an escape hatch but we don't surface it in the UI.
+  // Contract allows re-betting after 1 block, so players can always just click again.
 
   const formatClawd = (amount: bigint | undefined) => {
     if (!amount) return "0";
@@ -479,34 +432,7 @@ const Home: NextPage = () => {
             </>
           )}
 
-          {/* Orphaned Bet State — on-chain bet exists but localStorage lost */}
-          {(gameState === "orphaned" || gameState === "forfeiting") && (
-            <>
-              <div className="text-6xl mb-4">🔒</div>
-              <h2 className="card-title text-2xl">Active Bet Found</h2>
-              <p className="text-sm opacity-70">
-                You have a pending bet on-chain, but your session data was lost (different device or cleared browser
-                data). You{"'"}ll need to forfeit this bet to play again.
-              </p>
-              <p className="text-xs opacity-50 mt-1">
-                Your 10K CLAWD bet stays in the house. This is a one-time clear.
-              </p>
-              <button
-                className="btn btn-warning btn-lg w-full mt-4"
-                disabled={gameState === "forfeiting"}
-                onClick={handleForfeit}
-              >
-                {gameState === "forfeiting" ? (
-                  <>
-                    <span className="loading loading-spinner"></span>
-                    Forfeiting...
-                  </>
-                ) : (
-                  "🗑️ Forfeit & Play Again"
-                )}
-              </button>
-            </>
-          )}
+          {/* No orphaned bet UI — contract allows re-betting after 1 block */}
         </div>
       </div>
 
