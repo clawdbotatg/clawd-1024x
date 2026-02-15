@@ -426,6 +426,11 @@ const deployedContracts = {
               type: "address",
               internalType: "address",
             },
+            {
+              name: "_owner",
+              type: "address",
+              internalType: "address",
+            },
           ],
           stateMutability: "nonpayable",
         },
@@ -521,6 +526,49 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "WITHDRAW_DELAY",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "batchReveal",
+          inputs: [
+            {
+              name: "betIndices",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "secrets",
+              type: "bytes32[]",
+              internalType: "bytes32[]",
+            },
+            {
+              name: "salts",
+              type: "bytes32[]",
+              internalType: "bytes32[]",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "cancelWithdraw",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "checkWin",
           inputs: [
             {
@@ -573,45 +621,6 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "commitments",
-          inputs: [
-            {
-              name: "",
-              type: "address",
-              internalType: "address",
-            },
-          ],
-          outputs: [
-            {
-              name: "dataHash",
-              type: "bytes32",
-              internalType: "bytes32",
-            },
-            {
-              name: "commitBlock",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "betAmount",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "multiplier",
-              type: "uint256",
-              internalType: "uint256",
-            },
-            {
-              name: "claimed",
-              type: "bool",
-              internalType: "bool",
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
           name: "computeHash",
           inputs: [
             {
@@ -636,10 +645,62 @@ const deployedContracts = {
         },
         {
           type: "function",
-          name: "forfeit",
+          name: "executeWithdraw",
           inputs: [],
           outputs: [],
           stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "forfeit",
+          inputs: [
+            {
+              name: "betIndex",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "getActiveBets",
+          inputs: [
+            {
+              name: "player",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "indices",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "commitBlocks",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "betAmounts",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "multipliers",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "blocksLeftArr",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+          ],
+          stateMutability: "view",
         },
         {
           type: "function",
@@ -649,6 +710,11 @@ const deployedContracts = {
               name: "player",
               type: "address",
               internalType: "address",
+            },
+            {
+              name: "betIndex",
+              type: "uint256",
+              internalType: "uint256",
             },
           ],
           outputs: [
@@ -711,6 +777,25 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "getPlayerBetCount",
+          inputs: [
+            {
+              name: "player",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "getValidBets",
           inputs: [],
           outputs: [
@@ -769,8 +854,96 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "owner",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "paused",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "playerBets",
+          inputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "dataHash",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "commitBlock",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "betAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "multiplier",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "claimed",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "requestWithdraw",
+          inputs: [
+            {
+              name: "_to",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "reveal",
           inputs: [
+            {
+              name: "betIndex",
+              type: "uint256",
+              internalType: "uint256",
+            },
             {
               name: "secret",
               type: "bytes32",
@@ -864,14 +1037,85 @@ const deployedContracts = {
           stateMutability: "view",
         },
         {
+          type: "function",
+          name: "transferOwnership",
+          inputs: [
+            {
+              name: "newOwner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "unpause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "withdrawRequestedAt",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "withdrawTo",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
           type: "event",
-          name: "Clicked",
+          name: "BetForfeited",
           inputs: [
             {
               name: "player",
               type: "address",
               indexed: true,
               internalType: "address",
+            },
+            {
+              name: "betIndex",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "BetPlaced",
+          inputs: [
+            {
+              name: "player",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "betIndex",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
             },
             {
               name: "dataHash",
@@ -898,7 +1142,7 @@ const deployedContracts = {
               internalType: "uint256",
             },
             {
-              name: "payout",
+              name: "potentialPayout",
               type: "uint256",
               indexed: false,
               internalType: "uint256",
@@ -914,7 +1158,7 @@ const deployedContracts = {
         },
         {
           type: "event",
-          name: "Forfeited",
+          name: "BetWon",
           inputs: [
             {
               name: "player",
@@ -923,64 +1167,13 @@ const deployedContracts = {
               internalType: "address",
             },
             {
-              name: "commitBlock",
+              name: "betIndex",
               type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "HouseFunded",
-          inputs: [
-            {
-              name: "funder",
-              type: "address",
               indexed: true,
-              internalType: "address",
-            },
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
               internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "TokensBurned",
-          inputs: [
-            {
-              name: "amount",
-              type: "uint256",
-              indexed: false,
-              internalType: "uint256",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "Won",
-          inputs: [
-            {
-              name: "player",
-              type: "address",
-              indexed: true,
-              internalType: "address",
             },
             {
               name: "secret",
-              type: "bytes32",
-              indexed: false,
-              internalType: "bytes32",
-            },
-            {
-              name: "salt",
               type: "bytes32",
               indexed: false,
               internalType: "bytes32",
@@ -1007,6 +1200,108 @@ const deployedContracts = {
           anonymous: false,
         },
         {
+          type: "event",
+          name: "OwnerTransferred",
+          inputs: [
+            {
+              name: "oldOwner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newOwner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Paused",
+          inputs: [
+            {
+              name: "isPaused",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "TokensBurned",
+          inputs: [
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "WithdrawCancelled",
+          inputs: [
+            {
+              name: "by",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "WithdrawExecuted",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "WithdrawRequested",
+          inputs: [
+            {
+              name: "by",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "executeAfter",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
           type: "error",
           name: "ReentrancyGuardReentrantCall",
           inputs: [],
@@ -1024,7 +1319,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 42204238,
+      deployedOnBlock: 42204705,
     },
   },
 } as const;

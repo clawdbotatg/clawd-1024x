@@ -7,33 +7,35 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title TenTwentyFourX
- * @notice A variable-odds, variable-bet betting game with multipliers from 2x to 1024x using commit-reveal.
+ * @notice Variable-odds, variable-bet CLAWD betting with multi-roll support.
  *
- * How it works:
- * 1. CLICK: Pick a bet size (10K/50K/100K/500K CLAWD) and multiplier (2x-1024x), submit hash(secret, salt).
- * 2. CHECK: After 1 block, compute locally whether you won.
- *    - winning = (keccak256(secret, commitBlockHash) % multiplier == 0)
- * 3. REVEAL (only if you won!): Submit secret + salt on-chain to claim payout.
- *    - Payout = betAmount * multiplier * 98 / 100 (2% house edge)
+ * Players can roll multiple times without waiting. Each bet is tracked separately.
+ * Winners must claim within 256 blocks (countdown shown in frontend).
+ * Batch claims supported for efficiency.
  *
  * Economics:
- * - 1% of every bet is burned forever
+ * - Bet tiers: 10K / 50K / 100K / 500K CLAWD
+ * - Multipliers: 2x to 1024x (powers of 2)
+ * - 1% of every bet burned forever
  * - 2% house edge on winnings
- * - Solvency guard: can't pick a bet/multiplier combo the house can't cover
  *
- * The contract must be funded with CLAWD to pay out winners.
+ * Owner (clawdbotatg.eth) can trigger a withdrawal with 5-minute delay.
+ * Triggering withdrawal immediately pauses new bets so no one gets rugged mid-roll.
+ *
+ * ⚠️ Multiple large wins can exceed house balance. Players accept this risk.
  */
 contract TenTwentyFourX is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;
+    address public owner;
 
-    uint256 public constant HOUSE_EDGE_PERCENT = 2;        // 2% house edge on winnings
-    uint256 public constant BURN_PERCENT = 1;              // 1% burn on every bet
-    uint256 public constant REVEAL_WINDOW = 256;           // blocks before commitment expires
+    uint256 public constant HOUSE_EDGE_PERCENT = 2;
+    uint256 public constant BURN_PERCENT = 1;
+    uint256 public constant REVEAL_WINDOW = 256;
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    uint256 public constant WITHDRAW_DELAY = 5 minutes;
 
-    // Valid bet amounts (in tokens with 18 decimals)
     uint256[4] public VALID_BETS = [
         10_000 * 1e18,
         50_000 * 1e18,
@@ -41,10 +43,9 @@ contract TenTwentyFourX is ReentrancyGuard {
         500_000 * 1e18
     ];
 
-    // Valid multipliers: powers of 2 from 2 to 1024
     uint256[10] public VALID_MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
 
-    struct Commitment {
+    struct Bet {
         bytes32 dataHash;
         uint256 commitBlock;
         uint256 betAmount;
@@ -52,7 +53,13 @@ contract TenTwentyFourX is ReentrancyGuard {
         bool claimed;
     }
 
-    mapping(address => Commitment) public commitments;
+    // Each player has an array of bets
+    mapping(address => Bet[]) public playerBets;
+
+    // Withdrawal mechanism
+    bool public paused;
+    uint256 public withdrawRequestedAt;
+    address public withdrawTo;
 
     // Stats
     uint256 public totalBets;
@@ -61,39 +68,36 @@ contract TenTwentyFourX is ReentrancyGuard {
     uint256 public totalPaidOut;
     uint256 public totalBurned;
 
-    event Clicked(address indexed player, bytes32 dataHash, uint256 commitBlock, uint256 betAmount, uint256 multiplier, uint256 payout, uint256 burnAmount);
-    event Won(address indexed player, bytes32 secret, bytes32 salt, uint256 betAmount, uint256 multiplier, uint256 payout);
-    event Forfeited(address indexed player, uint256 commitBlock);
-    event HouseFunded(address indexed funder, uint256 amount);
+    event BetPlaced(address indexed player, uint256 indexed betIndex, bytes32 dataHash, uint256 commitBlock, uint256 betAmount, uint256 multiplier, uint256 potentialPayout, uint256 burnAmount);
+    event BetWon(address indexed player, uint256 indexed betIndex, bytes32 secret, uint256 betAmount, uint256 multiplier, uint256 payout);
+    event BetForfeited(address indexed player, uint256 indexed betIndex);
     event TokensBurned(uint256 amount);
+    event WithdrawRequested(address indexed by, address indexed to, uint256 executeAfter);
+    event WithdrawCancelled(address indexed by);
+    event WithdrawExecuted(address indexed to, uint256 amount);
+    event Paused(bool isPaused);
+    event OwnerTransferred(address indexed oldOwner, address indexed newOwner);
 
-    constructor(address _token) {
-        require(_token != address(0), "Invalid token");
-        token = IERC20(_token);
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
     }
 
-    /// @notice Place a bet by committing a hash, selecting bet size + multiplier
-    /// @param dataHash keccak256(abi.encodePacked(secret, salt))
-    /// @param betAmount The bet size (must be 10K, 50K, 100K, or 500K CLAWD)
-    /// @param multiplier The multiplier (must be a power of 2: 2, 4, 8, ..., 1024)
+    constructor(address _token, address _owner) {
+        require(_token != address(0), "Invalid token");
+        require(_owner != address(0), "Invalid owner");
+        token = IERC20(_token);
+        owner = _owner;
+    }
+
+    /// @notice Place a bet. Can place multiple without waiting.
     function click(bytes32 dataHash, uint256 betAmount, uint256 multiplier) external nonReentrant {
+        require(!paused, "Game paused");
         require(dataHash != bytes32(0), "Empty hash");
         require(_isValidBet(betAmount), "Invalid bet amount");
         require(_isValidMultiplier(multiplier), "Invalid multiplier");
 
-        // Allow re-betting after 1 block
-        Commitment memory prev = commitments[msg.sender];
-        require(
-            prev.commitBlock == 0 ||
-            prev.claimed ||
-            block.number > prev.commitBlock,
-            "Wait one block before re-betting"
-        );
-
-        // Calculate potential payout (with 2% house edge)
         uint256 payout = (betAmount * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
-
-        // Solvency: house keeps 99% of bet (1% burned)
         uint256 netBet = betAmount - (betAmount * BURN_PERCENT) / 100;
         require(
             token.balanceOf(address(this)) + netBet >= payout,
@@ -108,75 +112,145 @@ contract TenTwentyFourX is ReentrancyGuard {
         token.safeTransfer(BURN_ADDRESS, burnAmount);
         totalBurned += burnAmount;
 
-        commitments[msg.sender] = Commitment({
+        // Push new bet to player's array
+        uint256 betIndex = playerBets[msg.sender].length;
+        playerBets[msg.sender].push(Bet({
             dataHash: dataHash,
             commitBlock: block.number,
             betAmount: betAmount,
             multiplier: multiplier,
             claimed: false
-        });
+        }));
 
         totalBets++;
         totalBetAmount += betAmount;
 
-        emit Clicked(msg.sender, dataHash, block.number, betAmount, multiplier, payout, burnAmount);
+        emit BetPlaced(msg.sender, betIndex, dataHash, block.number, betAmount, multiplier, payout, burnAmount);
         emit TokensBurned(burnAmount);
     }
 
-    /// @notice Reveal your secret to claim winnings (only call if you won!)
-    function reveal(bytes32 secret, bytes32 salt) external nonReentrant {
-        Commitment storage c = commitments[msg.sender];
+    /// @notice Reveal a single winning bet
+    function reveal(uint256 betIndex, bytes32 secret, bytes32 salt) external nonReentrant {
+        _reveal(msg.sender, betIndex, secret, salt);
+    }
 
-        require(c.commitBlock != 0, "No bet found");
-        require(!c.claimed, "Already claimed");
-        require(block.number > c.commitBlock, "Wait one block");
+    /// @notice Batch reveal multiple winning bets
+    function batchReveal(uint256[] calldata betIndices, bytes32[] calldata secrets, bytes32[] calldata salts) external nonReentrant {
+        require(betIndices.length == secrets.length && secrets.length == salts.length, "Array length mismatch");
+        require(betIndices.length <= 20, "Too many reveals");
 
-        bytes32 commitBlockHash = blockhash(c.commitBlock);
+        for (uint256 i = 0; i < betIndices.length; i++) {
+            _reveal(msg.sender, betIndices[i], secrets[i], salts[i]);
+        }
+    }
+
+    function _reveal(address player, uint256 betIndex, bytes32 secret, bytes32 salt) internal {
+        require(betIndex < playerBets[player].length, "Invalid bet index");
+        Bet storage b = playerBets[player][betIndex];
+
+        require(b.commitBlock != 0, "No bet found");
+        require(!b.claimed, "Already claimed");
+        require(block.number > b.commitBlock, "Wait one block");
+
+        bytes32 commitBlockHash = blockhash(b.commitBlock);
         require(commitBlockHash != bytes32(0), "Bet expired (>256 blocks)");
 
         // Verify commitment
         bytes32 computedHash = keccak256(abi.encodePacked(secret, salt));
-        require(computedHash == c.dataHash, "Hash mismatch");
+        require(computedHash == b.dataHash, "Hash mismatch");
 
         // Check if winner
         bytes32 randomSeed = keccak256(abi.encodePacked(secret, commitBlockHash));
-        require(uint256(randomSeed) % c.multiplier == 0, "Not a winner");
+        require(uint256(randomSeed) % b.multiplier == 0, "Not a winner");
 
-        // Payout uses stored bet amount
-        uint256 payout = (c.betAmount * c.multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
+        uint256 payout = (b.betAmount * b.multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
 
-        c.claimed = true;
+        b.claimed = true;
         totalWins++;
         totalPaidOut += payout;
 
-        token.safeTransfer(msg.sender, payout);
+        token.safeTransfer(player, payout);
 
-        emit Won(msg.sender, secret, salt, c.betAmount, c.multiplier, payout);
+        emit BetWon(player, betIndex, secret, b.betAmount, b.multiplier, payout);
     }
 
-    /// @notice Forfeit your current bet
-    function forfeit() external nonReentrant {
-        Commitment storage c = commitments[msg.sender];
-        require(c.commitBlock != 0, "No bet found");
-        require(!c.claimed, "Already claimed");
-        require(block.number > c.commitBlock, "Wait one block");
+    /// @notice Forfeit a specific bet
+    function forfeit(uint256 betIndex) external nonReentrant {
+        require(betIndex < playerBets[msg.sender].length, "Invalid bet index");
+        Bet storage b = playerBets[msg.sender][betIndex];
+        require(b.commitBlock != 0, "No bet found");
+        require(!b.claimed, "Already claimed");
+        require(block.number > b.commitBlock, "Wait one block");
 
-        c.claimed = true;
-        emit Forfeited(msg.sender, c.commitBlock);
+        b.claimed = true;
+        emit BetForfeited(msg.sender, betIndex);
     }
 
-    /// @notice Compute the commitment hash
+    // ===== Owner withdrawal with 5-min delay =====
+
+    /// @notice Owner requests withdrawal. Immediately pauses new bets.
+    function requestWithdraw(address _to) external onlyOwner {
+        require(_to != address(0), "Invalid address");
+        paused = true;
+        withdrawRequestedAt = block.timestamp;
+        withdrawTo = _to;
+
+        emit WithdrawRequested(msg.sender, _to, block.timestamp + WITHDRAW_DELAY);
+        emit Paused(true);
+    }
+
+    /// @notice Owner cancels withdrawal and unpauses.
+    function cancelWithdraw() external onlyOwner {
+        withdrawRequestedAt = 0;
+        withdrawTo = address(0);
+        paused = false;
+
+        emit WithdrawCancelled(msg.sender);
+        emit Paused(false);
+    }
+
+    /// @notice Execute withdrawal after delay has passed.
+    function executeWithdraw() external onlyOwner {
+        require(withdrawRequestedAt != 0, "No withdrawal requested");
+        require(block.timestamp >= withdrawRequestedAt + WITHDRAW_DELAY, "Delay not met");
+
+        address to = withdrawTo;
+        uint256 amount = token.balanceOf(address(this));
+
+        withdrawRequestedAt = 0;
+        withdrawTo = address(0);
+        // Game stays paused until owner explicitly unpauses
+
+        token.safeTransfer(to, amount);
+
+        emit WithdrawExecuted(to, amount);
+    }
+
+    /// @notice Owner can unpause (e.g. after refunding the house)
+    function unpause() external onlyOwner {
+        require(withdrawRequestedAt == 0, "Cancel withdrawal first");
+        paused = false;
+        emit Paused(false);
+    }
+
+    /// @notice Transfer ownership
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid owner");
+        emit OwnerTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
+    // ===== View functions =====
+
     function computeHash(bytes32 secret, bytes32 salt) external pure returns (bytes32) {
         return keccak256(abi.encodePacked(secret, salt));
     }
 
-    /// @notice Check if a secret would win given a specific blockhash and multiplier
     function checkWin(bytes32 secret, bytes32 blockHash, uint256 multiplier) external pure returns (bool) {
         bytes32 randomSeed = keccak256(abi.encodePacked(secret, blockHash));
         return uint256(randomSeed) % multiplier == 0;
     }
 
-    /// @notice Get the highest multiplier the house can cover for a given bet size
     function maxMultiplierForBet(uint256 betAmount) external view returns (uint256) {
         uint256 currentBalance = token.balanceOf(address(this));
         uint256 netBet = betAmount - (betAmount * BURN_PERCENT) / 100;
@@ -191,13 +265,17 @@ contract TenTwentyFourX is ReentrancyGuard {
         return 0;
     }
 
-    /// @notice Get the house balance
     function houseBalance() external view returns (uint256) {
         return token.balanceOf(address(this));
     }
 
-    /// @notice Get a player's current bet info
-    function getBet(address player) external view returns (
+    /// @notice Get total number of bets for a player
+    function getPlayerBetCount(address player) external view returns (uint256) {
+        return playerBets[player].length;
+    }
+
+    /// @notice Get a specific bet
+    function getBet(address player, uint256 betIndex) external view returns (
         bytes32 dataHash,
         uint256 commitBlock,
         uint256 betAmount,
@@ -205,28 +283,66 @@ contract TenTwentyFourX is ReentrancyGuard {
         bool claimed,
         uint256 blocksLeft
     ) {
-        Commitment memory c = commitments[player];
+        require(betIndex < playerBets[player].length, "Invalid index");
+        Bet memory b = playerBets[player][betIndex];
         uint256 left = 0;
-        if (c.commitBlock != 0 && !c.claimed) {
-            uint256 expiry = c.commitBlock + REVEAL_WINDOW;
+        if (b.commitBlock != 0 && !b.claimed) {
+            uint256 expiry = b.commitBlock + REVEAL_WINDOW;
             if (block.number < expiry) {
                 left = expiry - block.number;
             }
         }
-        return (c.dataHash, c.commitBlock, c.betAmount, c.multiplier, c.claimed, left);
+        return (b.dataHash, b.commitBlock, b.betAmount, b.multiplier, b.claimed, left);
     }
 
-    /// @notice Get expected payout for a bet + multiplier combo
+    /// @notice Get recent active (unclaimed) bets for a player
+    function getActiveBets(address player) external view returns (
+        uint256[] memory indices,
+        uint256[] memory commitBlocks,
+        uint256[] memory betAmounts,
+        uint256[] memory multipliers,
+        uint256[] memory blocksLeftArr
+    ) {
+        Bet[] storage bets = playerBets[player];
+        
+        // Count active bets
+        uint256 count = 0;
+        for (uint256 i = bets.length; i > 0 && count < 50; i--) {
+            Bet storage b = bets[i - 1];
+            if (!b.claimed && b.commitBlock != 0) {
+                count++;
+            }
+        }
+
+        indices = new uint256[](count);
+        commitBlocks = new uint256[](count);
+        betAmounts = new uint256[](count);
+        multipliers = new uint256[](count);
+        blocksLeftArr = new uint256[](count);
+
+        uint256 idx = 0;
+        for (uint256 i = bets.length; i > 0 && idx < count; i--) {
+            Bet storage b = bets[i - 1];
+            if (!b.claimed && b.commitBlock != 0) {
+                indices[idx] = i - 1;
+                commitBlocks[idx] = b.commitBlock;
+                betAmounts[idx] = b.betAmount;
+                multipliers[idx] = b.multiplier;
+                uint256 expiry = b.commitBlock + REVEAL_WINDOW;
+                blocksLeftArr[idx] = block.number < expiry ? expiry - block.number : 0;
+                idx++;
+            }
+        }
+    }
+
     function getPayoutFor(uint256 betAmount, uint256 multiplier) external pure returns (uint256) {
         return (betAmount * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
     }
 
-    /// @notice Get all valid bet amounts
     function getValidBets() external view returns (uint256[4] memory) {
         return VALID_BETS;
     }
 
-    /// @notice Get all valid multipliers
     function getValidMultipliers() external view returns (uint256[10] memory) {
         return VALID_MULTIPLIERS;
     }
