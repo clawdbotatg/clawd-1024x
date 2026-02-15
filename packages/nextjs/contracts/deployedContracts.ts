@@ -444,6 +444,32 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "BURN_ADDRESS",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "BURN_PERCENT",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "HOUSE_EDGE_PERCENT",
           inputs: [],
           outputs: [
@@ -755,6 +781,19 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "totalBurned",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "totalPaidOut",
           inputs: [],
           outputs: [
@@ -813,6 +852,12 @@ const deployedContracts = {
               indexed: false,
               internalType: "uint256",
             },
+            {
+              name: "burnAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
           ],
           anonymous: false,
         },
@@ -845,6 +890,19 @@ const deployedContracts = {
               indexed: true,
               internalType: "address",
             },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "TokensBurned",
+          inputs: [
             {
               name: "amount",
               type: "uint256",
@@ -909,7 +967,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 42203800,
+      deployedOnBlock: 42204006,
     },
   },
 } as const;

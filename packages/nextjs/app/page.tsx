@@ -134,6 +134,10 @@ const Home: NextPage = () => {
     contractName: "TenTwentyFourX",
     functionName: "totalPaidOut",
   });
+  const { data: totalBurned } = useScaffoldReadContract({
+    contractName: "TenTwentyFourX",
+    functionName: "totalBurned",
+  });
 
   // Recent wins
   const { data: winEvents } = useScaffoldEventHistory({
@@ -308,8 +312,8 @@ const Home: NextPage = () => {
           <div className="stat-value text-lg">{totalWins?.toString() || "0"}</div>
         </div>
         <div className="stat">
-          <div className="stat-title">Total Paid Out</div>
-          <div className="stat-value text-lg">{formatClawd(totalPaidOut)}</div>
+          <div className="stat-title">Total Burned 🔥</div>
+          <div className="stat-value text-lg">{formatClawd(totalBurned)}</div>
           <div className="stat-desc">CLAWD</div>
         </div>
       </div>
@@ -324,8 +328,11 @@ const Home: NextPage = () => {
               <h1 className="card-title text-4xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                 1024x
               </h1>
-              <p className="text-sm opacity-70 mb-4">
+              <p className="text-sm opacity-70 mb-2">
                 Pay <span className="font-bold">10,000 CLAWD</span> • Variable odds from 2x to 1024x
+              </p>
+              <p className="text-xs opacity-60 mb-4 bg-orange-100/20 p-2 rounded">
+                🔥 1% burned forever • 2% house edge on winnings
               </p>
 
               {/* Multiplier Selector */}
@@ -508,7 +515,7 @@ const Home: NextPage = () => {
             <div className="flex gap-3 items-start">
               <span className="badge badge-primary badge-sm mt-1">2</span>
               <p>
-                <span className="font-bold">Roll</span> — Pay 10,000 CLAWD. Your secret is committed on-chain.
+                <span className="font-bold">Roll</span> — Pay 10,000 CLAWD. 1% gets burned 🔥, 99% goes to the house. Your secret is committed on-chain.
               </p>
             </div>
             <div className="flex gap-3 items-start">
@@ -526,7 +533,7 @@ const Home: NextPage = () => {
           </div>
           <div className="divider my-1"></div>
           <p className="text-xs opacity-50">
-            House edge: 2% • Examples: 2x pays 19,600 CLAWD, 1024x pays 10,035,200 CLAWD • Commit-reveal ensures provable fairness.
+            House edge: 2% • Burn: 1% per roll 🔥 • Examples: 2x pays 19,600 CLAWD, 1024x pays 10,035,200 CLAWD • Commit-reveal ensures provable fairness.
           </p>
         </div>
       </div>
