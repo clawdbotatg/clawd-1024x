@@ -111,6 +111,19 @@ const Home: NextPage = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [awaitingWallet, setAwaitingWallet] = useState(false);
+
+  // Try to open mobile wallet app
+  const openWallet = useCallback(() => {
+    // Only on mobile — detect via user agent
+    if (typeof window === "undefined") return;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (!isMobile) return;
+    // Don't open if already inside wallet browser
+    if (window.ethereum && (window.ethereum as unknown as Record<string, boolean>).isMetaMask && window.innerWidth < 500) return;
+    // Try MetaMask deep link
+    const currentUrl = window.location.href;
+    window.location.href = `metamask://dapp/${currentUrl.replace(/^https?:\/\//, "")}`;
+  }, []);
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
 
@@ -221,10 +234,39 @@ const Home: NextPage = () => {
     checkBets();
   }, [currentBlock, publicClient, connectedAddress]);
 
+  // Auto-forfeit expired bets to release outstanding payouts from contract
+  const handleForfeitExpired = useCallback(async () => {
+    if (!connectedAddress) return;
+    const bets = loadBets(connectedAddress);
+    const expired = bets.filter(b => b.status === "expired");
+    if (expired.length === 0) return;
+
+    try {
+      for (const bet of expired) {
+        await gameWrite({ functionName: "forfeit", args: [BigInt(bet.betIndex)] });
+        const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
+        if (idx >= 0) bets[idx].status = "lost"; // Mark as lost after forfeit
+      }
+      saveBets(connectedAddress, bets);
+      setPendingBets([...bets]);
+    } catch {
+      // Silently fail — might already be forfeited
+    }
+  }, [connectedAddress, gameWrite]);
+
+  // Auto-forfeit when expired bets detected
+  useEffect(() => {
+    const expired = pendingBets.filter(b => b.status === "expired");
+    if (expired.length > 0) {
+      handleForfeitExpired();
+    }
+  }, [pendingBets, handleForfeitExpired]);
+
   const handleApprove = useCallback(async () => {
     if (!connectedAddress) return;
     setIsApproving(true);
     setAwaitingWallet(true);
+    openWallet();
     try {
       await approveWrite({ functionName: "approve", args: [contractAddress, selectedBet.value * 10n] });
       setAwaitingWallet(false);
@@ -241,6 +283,7 @@ const Home: NextPage = () => {
     if (!connectedAddress || !publicClient) return;
     setIsClicking(true);
     setAwaitingWallet(true);
+    openWallet();
     try {
       const secret = randomBytes32();
       const salt = randomBytes32();
