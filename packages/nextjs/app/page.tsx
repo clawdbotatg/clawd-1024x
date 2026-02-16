@@ -135,6 +135,24 @@ const Home: NextPage = () => {
   }, []);
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
+  const [clawdPriceUsd, setClawdPriceUsd] = useState<number>(0);
+
+  // Fetch CLAWD price from DexScreener
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const res = await fetch(
+          "https://api.dexscreener.com/latest/dex/tokens/0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07",
+        );
+        const data = await res.json();
+        const pair = data?.pairs?.[0];
+        if (pair?.priceUsd) setClawdPriceUsd(parseFloat(pair.priceUsd));
+      } catch {}
+    };
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const { writeContractAsync: approveWrite } = useScaffoldWriteContract("CLAWD");
   const { writeContractAsync: gameWrite } = useScaffoldWriteContract("TenTwentyFourX");
@@ -379,6 +397,14 @@ const Home: NextPage = () => {
     return Number(formatEther(amount)).toLocaleString(undefined, { maximumFractionDigits: 0 });
   };
 
+  const formatUsd = (amount: bigint | undefined) => {
+    if (!amount || !clawdPriceUsd) return "";
+    const usd = Number(formatEther(amount)) * clawdPriceUsd;
+    if (usd < 0.01) return "<$0.01";
+    if (usd < 1) return `$${usd.toFixed(2)}`;
+    return `$${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  };
+
   const hasEnoughBalance = clawdBalance !== undefined && clawdBalance >= selectedBet.value;
   const houseCanPay = canAfford(selectedBet.value, selectedMultiplier);
 
@@ -396,7 +422,7 @@ const Home: NextPage = () => {
         <div className="stat">
           <div className="stat-title">House</div>
           <div className="stat-value text-lg">{formatClawd(houseBalance)}</div>
-          <div className="stat-desc">CLAWD</div>
+          <div className="stat-desc">{formatUsd(houseBalance) || "CLAWD"}</div>
         </div>
         <div className="stat">
           <div className="stat-title">Bets</div>
@@ -409,10 +435,12 @@ const Home: NextPage = () => {
         <div className="stat">
           <div className="stat-title">Paid</div>
           <div className="stat-value text-lg">{formatClawd(totalPaidOut)}</div>
+          <div className="stat-desc">{formatUsd(totalPaidOut)}</div>
         </div>
         <div className="stat">
           <div className="stat-title">🔥 Burned</div>
           <div className="stat-value text-lg">{formatClawd(totalBurned)}</div>
+          <div className="stat-desc">{formatUsd(totalBurned)}</div>
         </div>
       </div>
 
@@ -476,17 +504,24 @@ const Home: NextPage = () => {
             </div>
             <div className="flex justify-between">
               <span className="opacity-70">Payout</span>
-              <span className="font-bold text-success">{formatClawd(currentPayout)} CLAWD</span>
+              <span className="font-bold text-success">
+                {formatClawd(currentPayout)} CLAWD{" "}
+                <span className="font-normal opacity-60">{formatUsd(currentPayout)}</span>
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="opacity-70">🔥 Burn</span>
-              <span className="font-bold text-warning">{formatClawd(currentBurn)} CLAWD</span>
+              <span className="font-bold text-warning">
+                {formatClawd(currentBurn)} CLAWD{" "}
+                <span className="font-normal opacity-60">{formatUsd(currentBurn)}</span>
+              </span>
             </div>
           </div>
 
           {connectedAddress && (
             <div className="text-sm opacity-60 mt-1">
-              Balance: <span className="font-mono font-bold">{formatClawd(clawdBalance)}</span> CLAWD
+              Balance: <span className="font-mono font-bold">{formatClawd(clawdBalance)}</span> CLAWD{" "}
+              {formatUsd(clawdBalance) && <span className="opacity-70">({formatUsd(clawdBalance)})</span>}
             </div>
           )}
 
@@ -582,7 +617,10 @@ const Home: NextPage = () => {
                           {betLabel} @ {bet.multiplier}x
                         </span>
                         {bet.status === "won" && (
-                          <span className="text-success font-bold ml-2">→ {formatClawd(payout)} CLAWD</span>
+                          <span className="text-success font-bold ml-2">
+                            → {formatClawd(payout)} CLAWD{" "}
+                            <span className="font-normal opacity-60">{formatUsd(payout)}</span>
+                          </span>
                         )}
                       </div>
                       <div className="text-right">
@@ -663,7 +701,8 @@ const Home: NextPage = () => {
                 <div key={i} className="flex items-center justify-between p-2 bg-success/10 rounded-lg">
                   <Address address={event.args.player} />
                   <span className="font-bold text-success">
-                    {event.args.multiplier?.toString()}x → +{formatClawd(event.args.payout)} 🦞
+                    {event.args.multiplier?.toString()}x → +{formatClawd(event.args.payout)} 🦞{" "}
+                    <span className="font-normal opacity-60">{formatUsd(event.args.payout)}</span>
                   </span>
                 </div>
               ))}
