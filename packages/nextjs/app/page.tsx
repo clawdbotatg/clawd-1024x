@@ -545,7 +545,12 @@ const Home: NextPage = () => {
 
       {/* Rolling Animation — shown when any bet is waiting */}
       {activeBets.some(b => b.status === "waiting") && (
-        <div className="card bg-base-100 shadow-xl w-full max-w-md">
+        <div
+          ref={el => {
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+          className="card bg-base-100 shadow-xl w-full max-w-md"
+        >
           <div className="card-body items-center">
             <RollingAnimation multiplier={activeBets.find(b => b.status === "waiting")?.multiplier || 2} />
           </div>
