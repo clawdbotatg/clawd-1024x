@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Address } from "@scaffold-ui/components";
+import confetti from "canvas-confetti";
 import type { NextPage } from "next";
 import { encodePacked, formatEther, keccak256, parseEther } from "viem";
 import { useAccount, usePublicClient, useSwitchChain } from "wagmi";
@@ -11,6 +12,42 @@ import { useScaffoldReadContract } from "~~/hooks/scaffold-eth/useScaffoldReadCo
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth/useScaffoldWriteContract";
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { notification } from "~~/utils/scaffold-eth";
+
+// 🦞🎲💰 Win confetti!
+function fireWinConfetti() {
+  const lobsterEmojis = ["🦞", "🎲", "💰", "🎉", "💎", "🔥"];
+  // Burst from both sides
+  const defaults = { startVelocity: 30, spread: 360, ticks: 80, zIndex: 9999 };
+
+  function fire(particleRatio: number, opts: confetti.Options) {
+    confetti({ ...defaults, ...opts, particleCount: Math.floor(200 * particleRatio) });
+  }
+
+  fire(0.25, { spread: 26, startVelocity: 55, origin: { x: 0.2, y: 0.6 } });
+  fire(0.2, { spread: 60, origin: { x: 0.5, y: 0.5 } });
+  fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, origin: { x: 0.8, y: 0.6 } });
+  fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2, origin: { x: 0.5, y: 0.3 } });
+
+  // Emoji confetti — lobsters, dice, money
+  const shapeDefaults = { startVelocity: 20, spread: 360, ticks: 90, zIndex: 10000, scalar: 2, gravity: 0.6 };
+  lobsterEmojis.forEach((emoji, i) => {
+    setTimeout(() => {
+      confetti({
+        ...shapeDefaults,
+        particleCount: 8,
+        shapes: ["circle"],
+        colors: ["#FF6B35", "#FFD700", "#FF1744", "#00E676"],
+        origin: { x: 0.2 + Math.random() * 0.6, y: 0.3 + Math.random() * 0.3 },
+      });
+    }, i * 150);
+  });
+
+  // Second wave
+  setTimeout(() => {
+    fire(0.3, { spread: 100, startVelocity: 45, origin: { x: 0.3, y: 0.7 } });
+    fire(0.3, { spread: 100, startVelocity: 45, origin: { x: 0.7, y: 0.7 } });
+  }, 400);
+}
 
 // Rolling animation component
 function RollingAnimation({ multiplier }: { multiplier: number }) {
@@ -255,6 +292,7 @@ const Home: NextPage = () => {
           const isWinner = BigInt(randomSeed) % BigInt(bet.multiplier) === 0n;
 
           bet.status = isWinner ? "won" : "lost";
+          if (isWinner) fireWinConfetti();
           changed = true;
         } catch {}
       }
