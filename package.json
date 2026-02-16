@@ -60,5 +60,9 @@
   "dependencies": {
     "@base-org/account": "^2.5.2",
     "react-remove-scroll-bar": "^2.3.8"
+  },
+  "resolutions": {
+    "@noble/hashes": "1.8.0",
+    "@noble/curves": "1.9.0"
   }
 }
