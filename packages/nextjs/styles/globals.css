@@ -90,6 +90,11 @@
 
   body {
     min-height: 100vh;
+    background-image: url("/bg.jpg");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
 
   h1,
@@ -103,7 +108,16 @@
 
 :root,
 [data-theme] {
-  background: var(--color-base-200);
+  background: transparent;
+}
+
+.card {
+  backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.82) !important;
+}
+
+[data-theme="dark"] .card {
+  background-color: rgba(56, 81, 131, 0.82) !important;
 }
 
 .btn {

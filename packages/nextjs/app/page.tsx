@@ -456,8 +456,10 @@ const Home: NextPage = () => {
   return (
     <div className="flex flex-col items-center gap-6 py-8 px-4 min-h-screen">
       {/* Header */}
-      <div className="text-center">
-        <h1 className="text-5xl font-black tracking-tight">1024x.fun</h1>
+      <div className="text-center drop-shadow-lg">
+        <h1 className="text-5xl font-black tracking-tight" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}>
+          1024x.fun
+        </h1>
         <div className="text-2xl font-bold mt-2 font-mono">
           {formatClawd(houseBalance)} <span className="opacity-60 text-lg">CLAWD</span>
         </div>
