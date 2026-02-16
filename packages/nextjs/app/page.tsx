@@ -194,6 +194,8 @@ const Home: NextPage = () => {
       window.location.href = `cbwallet://dapp/${strippedUrl}`;
     } else if (connectorName.includes("trust") || connectorId.includes("trust")) {
       window.location.href = `trust://open_url?coin_id=60&url=${encodeURIComponent(currentUrl)}`;
+    } else if (connectorName.includes("phantom") || connectorId.includes("phantom")) {
+      window.location.href = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(currentUrl)}`;
     } else if (connectorName.includes("metamask") || connectorId.includes("metamask")) {
       window.location.href = `metamask://dapp/${strippedUrl}`;
     }
