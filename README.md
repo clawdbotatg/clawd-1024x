@@ -16,7 +16,7 @@ Uses commit-reveal so neither the player nor the blockchain can predict the outc
 - **Burn:** 1% of every bet is burned 🔥
 - **Contract:** [`0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc`](https://basescan.org/address/0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc) on Base
 - **Token:** [$CLAWD](https://basescan.org/token/0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07) on Base
-- **Live:** [clawd-1024x-theta.vercel.app](https://clawd-1024x-theta.vercel.app)
+- **Live:** [1024x.fun](https://1024x.fun)
 
 ## ⚠️ Disclaimer
 
