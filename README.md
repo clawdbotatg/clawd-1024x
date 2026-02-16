@@ -1,4 +1,4 @@
-# 🎰 1024x
+# 🦞🎲 CLAWD 1024x
 
 A variable-odds CLAWD token betting game on Base. Pick your bet size, pick your multiplier (2x–1024x), and roll.
 
