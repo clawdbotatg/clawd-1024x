@@ -189,6 +189,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@base-org/account@npm:^2.5.2":
+  version: 2.5.2
+  resolution: "@base-org/account@npm:2.5.2"
+  dependencies:
+    "@coinbase/cdp-sdk": ^1.0.0
+    brotli-wasm: ^3.0.0
+    clsx: 1.2.1
+    eventemitter3: 5.0.1
+    idb-keyval: 6.2.1
+    ox: 0.6.9
+    preact: 10.24.2
+    viem: ^2.31.7
+    zustand: 5.0.3
+  checksum: 115ee314dd0978b8eba45f74c52e71eef082a0cc9eda9f4041e46b2d983aa0c11b744626102078e24ad3cd7c4cec461e964624ebd01d349ce9220d6f8094c4a7
+  languageName: node
+  linkType: hard
+
 "@chainsafe/is-ip@npm:^2.0.1":
   version: 2.1.0
   resolution: "@chainsafe/is-ip@npm:2.1.0"
@@ -3162,6 +3179,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@se-2/nextjs@workspace:packages/nextjs"
   dependencies:
+    "@base-org/account": ^2.5.2
     "@heroicons/react": ~2.1.5
     "@rainbow-me/rainbowkit": 2.2.9
     "@react-native-async-storage/async-storage": ~2.2.0
@@ -6342,6 +6360,13 @@ __metadata:
   version: 1.1.0
   resolution: "brorand@npm:1.1.0"
   checksum: 8a05c9f3c4b46572dec6ef71012b1946db6cae8c7bb60ccd4b7dd5a84655db49fe043ecc6272e7ef1f69dc53d6730b9e2a3a03a8310509a3d797a618cbee52be
+  languageName: node
+  linkType: hard
+
+"brotli-wasm@npm:^3.0.0":
+  version: 3.0.1
+  resolution: "brotli-wasm@npm:3.0.1"
+  checksum: 48191b27265de8ffc59c940f9efef3a931448b6a15c26a4e360192fc3f0968e073c11fe0926510d019c305cc1d9c6d65df4d3e5752648a91cb0bbcccff7a8460
   languageName: node
   linkType: hard
 
@@ -13848,6 +13873,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "se-2@workspace:."
   dependencies:
+    "@base-org/account": ^2.5.2
     husky: ~9.1.6
     lint-staged: ~13.2.2
     react-remove-scroll-bar: ^2.3.8

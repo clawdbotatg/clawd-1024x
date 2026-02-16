@@ -58,6 +58,7 @@
     "node": ">=20.18.3"
   },
   "dependencies": {
+    "@base-org/account": "^2.5.2",
     "react-remove-scroll-bar": "^2.3.8"
   }
 }
