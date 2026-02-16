@@ -131,7 +131,8 @@ function randomBytes32(): `0x${string}` {
 function parseError(e: unknown): string {
   const msg = (e as Error)?.message || String(e);
   if (msg.includes("user rejected") || msg.includes("User denied")) return "Transaction cancelled";
-  if (msg.includes("House underfunded")) return "House can't cover this bet. Try lower odds or smaller bet.";
+  if (msg.includes("House underfunded") || msg.includes("Payout exceeds max"))
+    return "Payout exceeds 1/5 of house. Try lower odds or smaller bet.";
   if (msg.includes("Game paused")) return "Game is paused — withdrawal in progress.";
   if (msg.includes("Bet expired")) return "Bet expired (>256 blocks)";
   if (msg.includes("Not a winner")) return "Not a winning reveal";
@@ -260,8 +261,7 @@ const Home: NextPage = () => {
   const canAfford = (betValue: bigint, mult: number): boolean => {
     if (!houseBalance) return false;
     const payout = (betValue * BigInt(mult) * 98n) / 100n;
-    const netBet = betValue - betValue / 100n;
-    return houseBalance + netBet >= payout;
+    return payout <= houseBalance / 5n;
   };
 
   // Poll current block

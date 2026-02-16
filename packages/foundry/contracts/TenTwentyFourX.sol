@@ -31,6 +31,7 @@ contract TenTwentyFourX is ReentrancyGuard {
     uint256 public constant REVEAL_WINDOW = 256;
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
     uint256 public constant WITHDRAW_DELAY = 15 minutes;
+    uint256 public constant MAX_PAYOUT_DIVISOR = 5; // Max payout = house balance / 5
 
     uint256[4] public VALID_BETS = [
         10_000 * 1e18,
@@ -93,9 +94,9 @@ contract TenTwentyFourX is ReentrancyGuard {
         require(_isValidMultiplier(multiplier), "Invalid multiplier");
 
         uint256 payout = (betAmount * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
-        uint256 netBet = betAmount - (betAmount * BURN_PERCENT) / 100;
-        // Simple check: can the house cover this bet's payout?
-        require(token.balanceOf(address(this)) + netBet >= payout, "House underfunded for this bet");
+        uint256 currentBalance = token.balanceOf(address(this));
+        // Max payout is 1/5 of current house balance
+        require(payout <= currentBalance / MAX_PAYOUT_DIVISOR, "Payout exceeds max (1/5 of house)");
 
         // Take the bet
         token.safeTransferFrom(msg.sender, address(this), betAmount);

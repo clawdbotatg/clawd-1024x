@@ -164,7 +164,7 @@ contract TenTwentyFourXTest is Test {
         vm.startPrank(player);
         token.approve(address(poorGame), BET_10K);
         bytes32 hash = poorGame.computeHash(bytes32(uint256(42)), bytes32(uint256(1)));
-        vm.expectRevert("House underfunded for this bet");
+        vm.expectRevert("Payout exceeds max (1/5 of house)");
         poorGame.click(hash, BET_10K, 2);
         vm.stopPrank();
     }
