@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { formatEther } from "viem";
 import { hardhat } from "viem/chains";
@@ -29,8 +30,11 @@ export const Header = () => {
     <div className="sticky lg:static top-0 navbar bg-base-100/80 backdrop-blur-md min-h-0 shrink-0 justify-between z-20 shadow-md shadow-secondary/30 px-2 sm:px-4">
       <div className="navbar-start w-auto lg:w-1/2">
         <Link href="/" passHref className="flex items-center gap-2 ml-1 shrink-0">
+          <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
+            <Image alt="1024x.fun" fill src="/icon.jpg" className="object-cover" />
+          </div>
           <div className="flex flex-col">
-            <span className="font-black text-xl leading-tight">🦞 1024x.fun</span>
+            <span className="font-black text-xl leading-tight">1024x.fun</span>
             <span className="text-xs opacity-70 font-mono">{formatClawd(houseBalance)} CLAWD</span>
           </div>
         </Link>
