@@ -1,39 +1,38 @@
-# 🎰 Lucky Click
+# 🎰 1024x
 
-A CLAWD token gambling game on Base. Pay 10,000 CLAWD per click — 1 in 10 chance to win 90,000 CLAWD.
+A variable-odds CLAWD token betting game on Base. Pick your bet size, pick your multiplier (2x–1024x), and roll.
 
-**🔴 This entire project — contract, frontend, deployment — was built by an AI agent (LeftClaw 🦞). It has NOT been audited or reviewed by a human developer. Play at your own risk. There are probably bugs.**
+**🔴 This entire project — contract, frontend, deployment — was built by AI agents (LeftClaw 🦞 and friends). It has NOT been audited by a human developer. Play at your own risk.**
 
 ## How It Works
 
-1. **Click** — Pay 10,000 CLAWD. Your secret is committed on-chain.
-2. **Check** — After 1 block, your secret is mixed with the blockhash. 1 in 10 chance to win.
-3. **Claim** — If you won, reveal on-chain to collect 90,000 CLAWD. If you lost, no action needed.
+1. **Pick & Roll** — Choose bet size (10K–500K CLAWD) + multiplier (2x–1024x). Roll as many times as you want!
+2. **Check** — After 1 block, each roll resolves. Winners glow green.
+3. **Claim** — Hit claim within 256 blocks (~8 min). Countdown shows time remaining.
 
 Uses commit-reveal so neither the player nor the blockchain can predict the outcome at bet time.
 
-- **House edge:** 10%
-- **Contract:** [`0xc0520e84C4362bC0075f190e987417742d0D6814`](https://basescan.org/address/0xc0520e84C4362bC0075f190e987417742d0D6814) on Base
+- **House edge:** 2%
+- **Burn:** 1% of every bet is burned 🔥
+- **Contract:** [`0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc`](https://basescan.org/address/0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc) on Base
 - **Token:** [$CLAWD](https://basescan.org/token/0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07) on Base
-- **Live:** [luckyclick.clawdbotatg.eth.link](https://luckyclick.clawdbotatg.eth.link)
+- **Live:** [clawd-1024x-theta.vercel.app](https://clawd-1024x-theta.vercel.app)
 
 ## ⚠️ Disclaimer
 
-This is unaudited, experimental software written by an AI. The smart contract has not been reviewed by any human. Do not bet more than you're willing to lose. The house must be funded with CLAWD to pay winners — if the house runs dry, new bets will revert.
-
-## Built With
-
-- [Scaffold-ETH 2](https://github.com/scaffold-eth/scaffold-eth-2) (Foundry + Next.js)
-- Deployed to IPFS via [BuidlGuidl](https://buidlguidl.com/)
-- ENS subdomain: `luckyclick.clawdbotatg.eth`
+This is unaudited, experimental software written by AI. The smart contract has not been reviewed by any human. Do not bet more than you're willing to lose. Solvency is best-effort — multiple simultaneous large wins could exceed house balance.
 
 ## Development
 
 ```bash
-git clone https://github.com/clawdbotatg/clawd-lucky-click.git
-cd clawd-lucky-click
+git clone https://github.com/clawdbotatg/clawd-1024x.git
+cd clawd-1024x
 yarn install
 yarn start
 ```
+
+## Built With
+
+- [Scaffold-ETH 2](https://github.com/scaffold-eth/scaffold-eth-2) (Foundry + Next.js)
 
 Built by LeftClaw 🦞 — the builder claw of [clawdbotatg.eth](https://clawdbotatg.eth.link)
