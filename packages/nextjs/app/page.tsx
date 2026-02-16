@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Address } from "@scaffold-ui/components";
 import confetti from "canvas-confetti";
 import type { NextPage } from "next";
@@ -549,15 +550,19 @@ const Home: NextPage = () => {
           {/* Action Button */}
           <div className="w-full mt-3">
             {!connectedAddress ? (
-              <div className="alert alert-info">
-                <span>Connect your wallet to play</span>
-              </div>
+              <ConnectButton.Custom>
+                {({ openConnectModal }) => (
+                  <button className="btn btn-primary btn-lg w-full text-xl" onClick={openConnectModal}>
+                    🔗 Connect Wallet
+                  </button>
+                )}
+              </ConnectButton.Custom>
             ) : isWrongNetwork ? (
               <button
-                className="btn btn-warning btn-lg w-full"
+                className="btn btn-warning btn-lg w-full text-xl"
                 onClick={() => switchChain({ chainId: targetNetwork.id })}
               >
-                Switch Network
+                ⛓️ Switch to Base
               </button>
             ) : isPaused ? (
               <button className="btn btn-disabled btn-lg w-full">Game Paused</button>
