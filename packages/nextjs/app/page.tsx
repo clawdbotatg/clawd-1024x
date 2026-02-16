@@ -153,9 +153,24 @@ const Home: NextPage = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [awaitingWallet, setAwaitingWallet] = useState(false);
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [lastResult, setLastResult] = useState<{ type: "won" | "lost"; multiplier: number; betLabel: string } | null>(
     null,
   );
+
+  // Check disclaimer acceptance
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("1024x-disclaimer") === "accepted") setDisclaimerAccepted(true);
+    } catch {}
+  }, []);
+
+  const acceptDisclaimer = useCallback(() => {
+    try {
+      localStorage.setItem("1024x-disclaimer", "accepted");
+    } catch {}
+    setDisclaimerAccepted(true);
+  }, []);
 
   // Try to open mobile wallet app
   const openWallet = useCallback(() => {
@@ -460,6 +475,26 @@ const Home: NextPage = () => {
   const recentFinished = pendingBets
     .filter(b => b.status === "lost" || b.status === "expired" || b.status === "claimed")
     .slice(-10);
+
+  if (!disclaimerAccepted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <div className="card bg-base-100 shadow-xl w-full max-w-md">
+          <div className="card-body text-center">
+            <h2 className="card-title text-2xl font-black justify-center">⚠️ Disclaimer</h2>
+            <p className="text-sm opacity-80 mt-2 leading-relaxed">
+              This is unaudited, experimental software written by AI. The smart contract has not been reviewed by any
+              human. Do not put money in this. Do not connect your wallet. Solvency is best-effort — multiple
+              simultaneous large wins could exceed house balance. This is all slop-lobster claw-dogged.
+            </p>
+            <button className="btn btn-primary btn-lg w-full mt-4 text-lg" onClick={acceptDisclaimer}>
+              I Understand
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-6 py-8 px-4 min-h-screen">
