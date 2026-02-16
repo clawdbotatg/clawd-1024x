@@ -84,7 +84,10 @@ function saveBets(address: string, bets: PendingBet[]) {
 
 function randomBytes32(): `0x${string}` {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return ("0x" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")) as `0x${string}`;
+  return ("0x" +
+    Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("")) as `0x${string}`;
 }
 
 function parseError(e: unknown): string {
@@ -94,7 +97,8 @@ function parseError(e: unknown): string {
   if (msg.includes("Game paused")) return "Game is paused — withdrawal in progress.";
   if (msg.includes("Bet expired")) return "Bet expired (>256 blocks)";
   if (msg.includes("Not a winner")) return "Not a winning reveal";
-  if (msg.includes("insufficient allowance") || msg.includes("ERC20InsufficientAllowance")) return "Need to approve CLAWD first";
+  if (msg.includes("insufficient allowance") || msg.includes("ERC20InsufficientAllowance"))
+    return "Need to approve CLAWD first";
   return "Transaction failed";
 }
 
@@ -119,7 +123,12 @@ const Home: NextPage = () => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (!isMobile) return;
     // Don't open if already inside wallet browser
-    if (window.ethereum && (window.ethereum as unknown as Record<string, boolean>).isMetaMask && window.innerWidth < 500) return;
+    if (
+      window.ethereum &&
+      (window.ethereum as unknown as Record<string, boolean>).isMetaMask &&
+      window.innerWidth < 500
+    )
+      return;
     // Try MetaMask deep link
     const currentUrl = window.location.href;
     window.location.href = `metamask://dapp/${currentUrl.replace(/^https?:\/\//, "")}`;
@@ -148,11 +157,20 @@ const Home: NextPage = () => {
 
   const needsApproval = !allowance || allowance < selectedBet.value;
 
-  const { data: houseBalance } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "houseBalance" });
+  const { data: houseBalance } = useScaffoldReadContract({
+    contractName: "TenTwentyFourX",
+    functionName: "houseBalance",
+  });
   const { data: totalBets } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "totalBets" });
   const { data: totalWins } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "totalWins" });
-  const { data: totalPaidOut } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "totalPaidOut" });
-  const { data: totalBurned } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "totalBurned" });
+  const { data: totalPaidOut } = useScaffoldReadContract({
+    contractName: "TenTwentyFourX",
+    functionName: "totalPaidOut",
+  });
+  const { data: totalBurned } = useScaffoldReadContract({
+    contractName: "TenTwentyFourX",
+    functionName: "totalBurned",
+  });
   const { data: isPaused } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "paused" });
 
   const { data: winEvents } = useScaffoldEventHistory({
@@ -215,9 +233,7 @@ const Home: NextPage = () => {
           const block = await publicClient.getBlock({ blockNumber: BigInt(bet.commitBlock) });
           if (!block.hash) continue;
 
-          const randomSeed = keccak256(
-            encodePacked(["bytes32", "bytes32"], [bet.secret as `0x${string}`, block.hash])
-          );
+          const randomSeed = keccak256(encodePacked(["bytes32", "bytes32"], [bet.secret as `0x${string}`, block.hash]));
           const isWinner = BigInt(randomSeed) % BigInt(bet.multiplier) === 0n;
 
           bet.status = isWinner ? "won" : "lost";
@@ -248,6 +264,13 @@ const Home: NextPage = () => {
     setPendingBets([...bets]);
   }, [connectedAddress, pendingBets]);
 
+  // Reset isApproving when allowance actually updates
+  useEffect(() => {
+    if (isApproving && !needsApproval) {
+      setIsApproving(false);
+    }
+  }, [isApproving, needsApproval]);
+
   const handleApprove = useCallback(async () => {
     if (!connectedAddress) return;
     setIsApproving(true);
@@ -258,10 +281,11 @@ const Home: NextPage = () => {
       setAwaitingWallet(false);
       await refetchAllowance();
       notification.success("CLAWD approved!");
+      // Don't set isApproving=false here — wait for needsApproval to flip via the useEffect above
     } catch (e) {
       notification.error(parseError(e));
+      setIsApproving(false);
     }
-    setIsApproving(false);
     setAwaitingWallet(false);
   }, [connectedAddress, approveWrite, contractAddress, refetchAllowance, selectedBet]);
 
@@ -286,7 +310,9 @@ const Home: NextPage = () => {
 
       // Get bet index from player's bet count (it's length - 1 after the tx)
       // We read logs to find the betIndex from the BetPlaced event
-      const betPlacedTopic = keccak256(encodePacked(["string"], ["BetPlaced(address,uint256,bytes32,uint256,uint256,uint256,uint256,uint256)"]));
+      const betPlacedTopic = keccak256(
+        encodePacked(["string"], ["BetPlaced(address,uint256,bytes32,uint256,uint256,uint256,uint256,uint256)"]),
+      );
       const log = receipt.logs.find(l => l.topics[0] === betPlacedTopic);
       // betIndex is the second indexed param (topics[2])
       const betIndex = log ? Number(BigInt(log.topics[2] || "0")) : 0;
@@ -314,29 +340,32 @@ const Home: NextPage = () => {
     setAwaitingWallet(false);
   }, [connectedAddress, gameWrite, publicClient, selectedBet, selectedMultiplier]);
 
-  const handleClaim = useCallback(async (bet: PendingBet) => {
-    if (!connectedAddress) return;
-    setIsClaiming(bet.betIndex);
-    try {
-      await gameWrite({
-        functionName: "reveal",
-        args: [BigInt(bet.betIndex), bet.secret as `0x${string}`, bet.salt as `0x${string}`],
-      });
+  const handleClaim = useCallback(
+    async (bet: PendingBet) => {
+      if (!connectedAddress) return;
+      setIsClaiming(bet.betIndex);
+      try {
+        await gameWrite({
+          functionName: "reveal",
+          args: [BigInt(bet.betIndex), bet.secret as `0x${string}`, bet.salt as `0x${string}`],
+        });
 
-      const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+        const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
 
-      const bets = loadBets(connectedAddress);
-      const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
-      if (idx >= 0) bets[idx].status = "claimed";
-      saveBets(connectedAddress, bets);
-      setPendingBets([...bets]);
+        const bets = loadBets(connectedAddress);
+        const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
+        if (idx >= 0) bets[idx].status = "claimed";
+        saveBets(connectedAddress, bets);
+        setPendingBets([...bets]);
 
-      notification.success(`🎉 Claimed ${formatClawd(payout)} CLAWD!`);
-    } catch (e) {
-      notification.error(parseError(e));
-    }
-    setIsClaiming(null);
-  }, [connectedAddress, gameWrite]);
+        notification.success(`🎉 Claimed ${formatClawd(payout)} CLAWD!`);
+      } catch (e) {
+        notification.error(parseError(e));
+      }
+      setIsClaiming(null);
+    },
+    [connectedAddress, gameWrite],
+  );
 
   const clearFinished = useCallback(() => {
     if (!connectedAddress) return;
@@ -356,7 +385,9 @@ const Home: NextPage = () => {
   // Active bets (won, waiting)
   const activeBets = pendingBets.filter(b => b.status === "won" || b.status === "waiting");
   const claimableBets = pendingBets.filter(b => b.status === "won");
-  const recentFinished = pendingBets.filter(b => b.status === "lost" || b.status === "expired" || b.status === "claimed").slice(-10);
+  const recentFinished = pendingBets
+    .filter(b => b.status === "lost" || b.status === "expired" || b.status === "claimed")
+    .slice(-10);
 
   return (
     <div className="flex flex-col items-center gap-6 py-8 px-4 min-h-screen">
@@ -399,7 +430,9 @@ const Home: NextPage = () => {
 
           {/* Bet Size */}
           <div className="w-full">
-            <label className="label"><span className="label-text font-bold">Bet Size</span></label>
+            <label className="label">
+              <span className="label-text font-bold">Bet Size</span>
+            </label>
             <div className="grid grid-cols-4 gap-2">
               {BET_TIERS.map(tier => (
                 <button
@@ -415,7 +448,9 @@ const Home: NextPage = () => {
 
           {/* Multiplier */}
           <div className="w-full mt-2">
-            <label className="label"><span className="label-text font-bold">Multiplier</span></label>
+            <label className="label">
+              <span className="label-text font-bold">Multiplier</span>
+            </label>
             <div className="grid grid-cols-5 gap-2">
               {MULTIPLIERS.map(mult => {
                 const affordable = canAfford(selectedBet.value, mult);
@@ -458,22 +493,45 @@ const Home: NextPage = () => {
           {/* Action Button */}
           <div className="w-full mt-3">
             {!connectedAddress ? (
-              <div className="alert alert-info"><span>Connect your wallet to play</span></div>
+              <div className="alert alert-info">
+                <span>Connect your wallet to play</span>
+              </div>
             ) : isWrongNetwork ? (
-              <button className="btn btn-warning btn-lg w-full" onClick={() => switchChain({ chainId: targetNetwork.id })}>Switch Network</button>
+              <button
+                className="btn btn-warning btn-lg w-full"
+                onClick={() => switchChain({ chainId: targetNetwork.id })}
+              >
+                Switch Network
+              </button>
             ) : isPaused ? (
               <button className="btn btn-disabled btn-lg w-full">Game Paused</button>
             ) : !hasEnoughBalance ? (
-              <div className="alert alert-warning"><span>Need at least {selectedBet.display} CLAWD</span></div>
+              <div className="alert alert-warning">
+                <span>Need at least {selectedBet.display} CLAWD</span>
+              </div>
             ) : !houseCanPay ? (
-              <div className="alert alert-warning"><span>House can&apos;t cover this bet</span></div>
+              <div className="alert alert-warning">
+                <span>House can&apos;t cover this bet</span>
+              </div>
             ) : needsApproval ? (
               <button className="btn btn-primary btn-lg w-full" disabled={isApproving} onClick={handleApprove}>
-                {isApproving ? (<><span className="loading loading-spinner"></span>Approving...</>) : `Approve CLAWD`}
+                {isApproving ? (
+                  <>
+                    <span className="loading loading-spinner"></span>Approving...
+                  </>
+                ) : (
+                  `Approve CLAWD`
+                )}
               </button>
             ) : (
               <button className="btn btn-primary btn-lg w-full text-xl" disabled={isClicking} onClick={handleClick}>
-                {isClicking ? (<><span className="loading loading-spinner"></span>Rolling...</>) : `ROLL ${selectedBet.label} @ ${selectedMultiplier}x`}
+                {isClicking ? (
+                  <>
+                    <span className="loading loading-spinner"></span>Rolling...
+                  </>
+                ) : (
+                  `ROLL ${selectedBet.label} @ ${selectedMultiplier}x`
+                )}
               </button>
             )}
             {awaitingWallet && (
@@ -500,40 +558,43 @@ const Home: NextPage = () => {
           <div className="card-body">
             <h2 className="card-title text-lg">
               🎲 Your Active Bets
-              {claimableBets.length > 0 && (
-                <span className="badge badge-success">{claimableBets.length} won!</span>
-              )}
+              {claimableBets.length > 0 && <span className="badge badge-success">{claimableBets.length} won!</span>}
             </h2>
             <div className="space-y-3">
-              {activeBets.map((bet) => {
+              {activeBets.map(bet => {
                 const blocksLeft = Math.max(0, bet.commitBlock + 256 - currentBlock);
                 const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
                 const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
 
                 return (
-                  <div key={`${bet.betIndex}-${bet.commitBlock}`} className={`p-3 rounded-lg ${bet.status === "won" ? "bg-success/15 border border-success/30" : "bg-base-200"}`}>
+                  <div
+                    key={`${bet.betIndex}-${bet.commitBlock}`}
+                    className={`p-3 rounded-lg ${bet.status === "won" ? "bg-success/15 border border-success/30" : "bg-base-200"}`}
+                  >
                     <div className="flex justify-between items-center">
                       <div>
-                        <span className="font-bold">{betLabel} @ {bet.multiplier}x</span>
+                        <span className="font-bold">
+                          {betLabel} @ {bet.multiplier}x
+                        </span>
                         {bet.status === "won" && (
                           <span className="text-success font-bold ml-2">→ {formatClawd(payout)} CLAWD</span>
                         )}
                       </div>
                       <div className="text-right">
-                        {bet.status === "waiting" && (
-                          <span className="text-xs opacity-60">waiting for block...</span>
-                        )}
+                        {bet.status === "waiting" && <span className="text-xs opacity-60">waiting for block...</span>}
                         {bet.status === "won" && (
                           <div>
-                            <div className="text-xs opacity-60 mb-1">
-                              ⏱️ {blocksLeft} blocks left
-                            </div>
+                            <div className="text-xs opacity-60 mb-1">⏱️ {blocksLeft} blocks left</div>
                             <button
                               className="btn btn-success btn-sm"
                               disabled={isClaiming === bet.betIndex}
                               onClick={() => handleClaim(bet)}
                             >
-                              {isClaiming === bet.betIndex ? <span className="loading loading-spinner loading-xs"></span> : "🏆 Claim"}
+                              {isClaiming === bet.betIndex ? (
+                                <span className="loading loading-spinner loading-xs"></span>
+                              ) : (
+                                "🏆 Claim"
+                              )}
                             </button>
                           </div>
                         )}
@@ -556,15 +617,27 @@ const Home: NextPage = () => {
           <div className="card-body">
             <div className="flex justify-between items-center">
               <h2 className="card-title text-lg">📜 Recent Results</h2>
-              <button className="btn btn-ghost btn-xs" onClick={clearFinished}>Clear</button>
+              <button className="btn btn-ghost btn-xs" onClick={clearFinished}>
+                Clear
+              </button>
             </div>
             <div className="space-y-1">
               {recentFinished.reverse().map((bet, i) => {
                 const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
                 return (
                   <div key={i} className="flex justify-between text-sm p-1">
-                    <span>{betLabel} @ {bet.multiplier}x</span>
-                    <span className={bet.status === "claimed" ? "text-success" : bet.status === "expired" ? "text-warning" : "opacity-50"}>
+                    <span>
+                      {betLabel} @ {bet.multiplier}x
+                    </span>
+                    <span
+                      className={
+                        bet.status === "claimed"
+                          ? "text-success"
+                          : bet.status === "expired"
+                            ? "text-warning"
+                            : "opacity-50"
+                      }
+                    >
                       {bet.status === "claimed" ? "✅ Claimed" : bet.status === "expired" ? "⏰ Expired" : "❌ Lost"}
                     </span>
                   </div>
@@ -574,34 +647,6 @@ const Home: NextPage = () => {
           </div>
         </div>
       )}
-
-      {/* How It Works */}
-      <div className="card bg-base-100 shadow-xl w-full max-w-md">
-        <div className="card-body">
-          <h2 className="card-title text-lg">How It Works</h2>
-          <div className="space-y-2 text-sm">
-            <div className="flex gap-3 items-start">
-              <span className="badge badge-primary badge-sm mt-1">1</span>
-              <p><span className="font-bold">Pick &amp; Roll</span> — Choose bet size + multiplier. Roll as many times as you want!</p>
-            </div>
-            <div className="flex gap-3 items-start">
-              <span className="badge badge-primary badge-sm mt-1">2</span>
-              <p><span className="font-bold">Check</span> — After 1 block, each roll resolves. Winners glow green.</p>
-            </div>
-            <div className="flex gap-3 items-start">
-              <span className="badge badge-primary badge-sm mt-1">3</span>
-              <p><span className="font-bold">Claim</span> — Hit claim within 256 blocks (~8 min). Countdown shows time remaining.</p>
-            </div>
-          </div>
-          <div className="divider my-1"></div>
-          <p className="text-xs opacity-50">
-            2% house edge • 1% burned every roll 🔥 • Commit-reveal fairness • Multiple concurrent bets supported
-          </p>
-          <p className="text-xs opacity-40 mt-1">
-            ⚠️ Solvency is best-effort. Multiple simultaneous large wins could exceed house balance. Play responsibly. Not financial advice.
-          </p>
-        </div>
-      </div>
 
       {/* Recent Winners (global) */}
       {winEvents && winEvents.length > 0 && (
