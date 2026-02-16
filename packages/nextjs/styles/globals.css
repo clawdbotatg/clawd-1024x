@@ -43,22 +43,22 @@
 @plugin "daisyui/theme" {
   name: "dark";
 
-  --color-primary: #212638;
-  --color-primary-content: #f9fbff;
-  --color-secondary: #323f61;
-  --color-secondary-content: #f9fbff;
-  --color-accent: #4969a6;
-  --color-accent-content: #f9fbff;
-  --color-neutral: #f9fbff;
-  --color-neutral-content: #385183;
-  --color-base-100: #385183;
-  --color-base-200: #2a3655;
-  --color-base-300: #212638;
-  --color-base-content: #f9fbff;
-  --color-info: #385183;
+  --color-primary: #c0522e;
+  --color-primary-content: #fef0e8;
+  --color-secondary: #8b4513;
+  --color-secondary-content: #fef0e8;
+  --color-accent: #d4783c;
+  --color-accent-content: #1a0f08;
+  --color-neutral: #fef0e8;
+  --color-neutral-content: #3d2112;
+  --color-base-100: #2a1a10;
+  --color-base-200: #1e1209;
+  --color-base-300: #140c05;
+  --color-base-content: #ede0d4;
+  --color-info: #8b6914;
   --color-success: #34eeb6;
   --color-warning: #ffcf72;
-  --color-error: #ff8863;
+  --color-error: #ff6b35;
 
   --radius-field: 9999rem;
   --radius-box: 1rem;
@@ -113,11 +113,7 @@
 
 .card {
   backdrop-filter: blur(12px);
-  background-color: rgba(255, 255, 255, 0.82) !important;
-}
-
-[data-theme="dark"] .card {
-  background-color: rgba(56, 81, 131, 0.82) !important;
+  background-color: rgba(42, 26, 16, 0.85) !important;
 }
 
 .btn {
