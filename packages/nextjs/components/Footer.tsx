@@ -10,9 +10,6 @@ import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 
 const CONTRACT_ADDRESS = "0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc";
 
-/**
- * Site footer
- */
 export const Footer = () => {
   const { targetNetwork } = useTargetNetwork();
   const isLocalNetwork = targetNetwork.id === hardhat.id;
@@ -46,6 +43,9 @@ export const Footer = () => {
       </div>
       <div className="w-full">
         <div className="flex flex-col items-center gap-2 text-sm py-4">
+          <div className="text-xs opacity-40">
+            made with 💗 by clawdheart — the lobster who loves
+          </div>
           <div className="flex items-center gap-2">
             <span className="opacity-50">Contract:</span>
             <Address address={CONTRACT_ADDRESS} />

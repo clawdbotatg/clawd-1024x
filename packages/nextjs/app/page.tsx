@@ -12,35 +12,95 @@ import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth/useScaffoldWrite
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { notification } from "~~/utils/scaffold-eth";
 
-// Rolling animation component
-function RollingAnimation({ multiplier }: { multiplier: number }) {
-  const [digits, setDigits] = useState<string[]>(["0", "0", "0", "0", "0", "0"]);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+// Heartbeat monitor animation
+function HeartbeatMonitor({ multiplier }: { multiplier: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [phase, setPhase] = useState(0);
 
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      setDigits(prev =>
-        prev.map(() => {
-          const chars = "0123456789ABCDEF";
-          return chars[Math.floor(Math.random() * chars.length)];
-        }),
-      );
-    }, 50);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let frame = 0;
+    const draw = () => {
+      ctx.fillStyle = "rgba(26, 10, 30, 0.15)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "#f43f5e";
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = "#f43f5e";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const mid = h / 2;
+
+      for (let x = 0; x < w; x++) {
+        const t = (x + frame * 3) / w;
+        const cycle = t % 1;
+        let y = mid;
+
+        if (cycle > 0.3 && cycle < 0.35) {
+          y = mid - 30 * Math.sin((cycle - 0.3) * Math.PI / 0.05);
+        } else if (cycle > 0.35 && cycle < 0.4) {
+          y = mid + 45 * Math.sin((cycle - 0.35) * Math.PI / 0.05);
+        } else if (cycle > 0.4 && cycle < 0.45) {
+          y = mid - 15 * Math.sin((cycle - 0.4) * Math.PI / 0.05);
+        } else {
+          y = mid + Math.sin(x * 0.02 + frame * 0.05) * 2;
+        }
+
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      frame++;
+      setPhase(frame);
+      requestAnimationFrame(draw);
     };
+
+    const animId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(animId);
   }, []);
 
   return (
     <div className="flex flex-col items-center gap-3 py-4">
-      <div className="font-mono text-3xl tracking-widest text-primary font-bold">
-        {digits.map((d, i) => (
-          <span key={i} className="inline-block w-8 text-center animate-pulse">
-            {d}
-          </span>
-        ))}
+      <canvas ref={canvasRef} width={360} height={80} className="rounded-xl w-full max-w-[360px] bg-base-300/50" />
+      <div className="flex items-center gap-2">
+        <span className="text-2xl" style={{ animation: "heartbeat 1.2s ease-in-out infinite" }}>💗</span>
+        <span className="text-lg font-bold text-primary animate-pulse">
+          Feeling lucky at {multiplier}x...
+        </span>
+        <span className="text-2xl" style={{ animation: "heartbeat 1.2s ease-in-out infinite" }}>💗</span>
       </div>
-      <div className="text-lg font-bold animate-bounce">Rolling for {multiplier}x...</div>
+    </div>
+  );
+}
+
+// Floating hearts background
+function FloatingHearts() {
+  const hearts = ["💗", "💖", "💝", "❤️", "🦞", "💕", "✨"];
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+      {Array.from({ length: 15 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute opacity-10 text-2xl"
+          style={{
+            left: `${(i * 7.3) % 100}%`,
+            top: `${(i * 13.7) % 100}%`,
+            animation: `heartbeat ${2 + (i % 3)}s ease-in-out infinite`,
+            animationDelay: `${i * 0.3}s`,
+          }}
+        >
+          {hearts[i % hearts.length]}
+        </div>
+      ))}
     </div>
   );
 }
@@ -53,6 +113,15 @@ const BET_TIERS = [
 ];
 
 const MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
+
+const LOVE_PHRASES = [
+  "love is in the air 💕",
+  "heart goes brrr 💗",
+  "feeling the pulse ❤️‍🔥",
+  "lobster love! 🦞",
+  "beating strong 💖",
+  "cupid's arrow 🏹",
+];
 
 const STORAGE_KEY = "1024x-bets";
 
@@ -89,13 +158,13 @@ function randomBytes32(): `0x${string}` {
 
 function parseError(e: unknown): string {
   const msg = (e as Error)?.message || String(e);
-  if (msg.includes("user rejected") || msg.includes("User denied")) return "Transaction cancelled";
-  if (msg.includes("House underfunded")) return "House can't cover this bet. Try lower odds or smaller bet.";
-  if (msg.includes("Game paused")) return "Game is paused — withdrawal in progress.";
-  if (msg.includes("Bet expired")) return "Bet expired (>256 blocks)";
-  if (msg.includes("Not a winner")) return "Not a winning reveal";
-  if (msg.includes("insufficient allowance") || msg.includes("ERC20InsufficientAllowance")) return "Need to approve CLAWD first";
-  return "Transaction failed";
+  if (msg.includes("user rejected") || msg.includes("User denied")) return "Transaction cancelled 💔";
+  if (msg.includes("House underfunded")) return "House heart can't cover this. Try gentler odds 💗";
+  if (msg.includes("Game paused")) return "Heart is resting... game paused 😴";
+  if (msg.includes("Bet expired")) return "Love expired (>256 blocks) 💔";
+  if (msg.includes("Not a winner")) return "Not a winning heartbeat";
+  if (msg.includes("insufficient allowance") || msg.includes("ERC20InsufficientAllowance")) return "Need to approve CLAWD first 💝";
+  return "Transaction failed 💔";
 }
 
 const Home: NextPage = () => {
@@ -111,19 +180,17 @@ const Home: NextPage = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [awaitingWallet, setAwaitingWallet] = useState(false);
+  const [lovePhrase, setLovePhrase] = useState(LOVE_PHRASES[0]);
 
-  // Try to open mobile wallet app
   const openWallet = useCallback(() => {
-    // Only on mobile — detect via user agent
     if (typeof window === "undefined") return;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (!isMobile) return;
-    // Don't open if already inside wallet browser
     if (window.ethereum && (window.ethereum as unknown as Record<string, boolean>).isMetaMask && window.innerWidth < 500) return;
-    // Try MetaMask deep link
     const currentUrl = window.location.href;
     window.location.href = `metamask://dapp/${currentUrl.replace(/^https?:\/\//, "")}`;
   }, []);
+
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
 
@@ -172,6 +239,14 @@ const Home: NextPage = () => {
     return houseBalance + netBet >= payout;
   };
 
+  // Rotate love phrases
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLovePhrase(LOVE_PHRASES[Math.floor(Math.random() * LOVE_PHRASES.length)]);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Poll current block
   useEffect(() => {
     if (!publicClient) return;
@@ -192,7 +267,7 @@ const Home: NextPage = () => {
     setPendingBets(loadBets(connectedAddress));
   }, [connectedAddress]);
 
-  // Check bet results when block advances
+  // Check bet results
   useEffect(() => {
     if (!publicClient || !connectedAddress || currentBlock === 0) return;
 
@@ -202,7 +277,6 @@ const Home: NextPage = () => {
 
       for (const bet of bets) {
         if (bet.status !== "waiting") continue;
-
         if (currentBlock <= bet.commitBlock) continue;
 
         if (currentBlock > bet.commitBlock + 256) {
@@ -214,12 +288,8 @@ const Home: NextPage = () => {
         try {
           const block = await publicClient.getBlock({ blockNumber: BigInt(bet.commitBlock) });
           if (!block.hash) continue;
-
-          const randomSeed = keccak256(
-            encodePacked(["bytes32", "bytes32"], [bet.secret as `0x${string}`, block.hash])
-          );
+          const randomSeed = keccak256(encodePacked(["bytes32", "bytes32"], [bet.secret as `0x${string}`, block.hash]));
           const isWinner = BigInt(randomSeed) % BigInt(bet.multiplier) === 0n;
-
           bet.status = isWinner ? "won" : "lost";
           changed = true;
         } catch {}
@@ -234,7 +304,7 @@ const Home: NextPage = () => {
     checkBets();
   }, [currentBlock, publicClient, connectedAddress]);
 
-  // Clean up expired bets from local storage (no contract call needed)
+  // Clean expired
   useEffect(() => {
     if (!connectedAddress) return;
     const bets = loadBets(connectedAddress);
@@ -257,7 +327,7 @@ const Home: NextPage = () => {
       await approveWrite({ functionName: "approve", args: [contractAddress, selectedBet.value * 10n] });
       setAwaitingWallet(false);
       await refetchAllowance();
-      notification.success("CLAWD approved!");
+      notification.success("CLAWD approved! 💝");
     } catch (e) {
       notification.error(parseError(e));
     }
@@ -284,11 +354,8 @@ const Home: NextPage = () => {
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
       const commitBlock = Number(receipt.blockNumber);
 
-      // Get bet index from player's bet count (it's length - 1 after the tx)
-      // We read logs to find the betIndex from the BetPlaced event
       const betPlacedTopic = keccak256(encodePacked(["string"], ["BetPlaced(address,uint256,bytes32,uint256,uint256,uint256,uint256,uint256)"]));
       const log = receipt.logs.find(l => l.topics[0] === betPlacedTopic);
-      // betIndex is the second indexed param (topics[2])
       const betIndex = log ? Number(BigInt(log.topics[2] || "0")) : 0;
 
       const newBet: PendingBet = {
@@ -306,7 +373,7 @@ const Home: NextPage = () => {
       saveBets(connectedAddress, bets);
       setPendingBets([...bets]);
 
-      notification.success(`Bet placed! ${selectedBet.label} @ ${selectedMultiplier}x 🎲`);
+      notification.success(`💗 Heartbeat placed! ${selectedBet.label} @ ${selectedMultiplier}x`);
     } catch (e) {
       notification.error(parseError(e));
     }
@@ -331,7 +398,7 @@ const Home: NextPage = () => {
       saveBets(connectedAddress, bets);
       setPendingBets([...bets]);
 
-      notification.success(`🎉 Claimed ${formatClawd(payout)} CLAWD!`);
+      notification.success(`💖 Love wins! Claimed ${formatClawd(payout)} CLAWD!`);
     } catch (e) {
       notification.error(parseError(e));
     }
@@ -353,274 +420,331 @@ const Home: NextPage = () => {
   const hasEnoughBalance = clawdBalance !== undefined && clawdBalance >= selectedBet.value;
   const houseCanPay = canAfford(selectedBet.value, selectedMultiplier);
 
-  // Active bets (won, waiting)
   const activeBets = pendingBets.filter(b => b.status === "won" || b.status === "waiting");
   const claimableBets = pendingBets.filter(b => b.status === "won");
   const recentFinished = pendingBets.filter(b => b.status === "lost" || b.status === "expired" || b.status === "claimed").slice(-10);
 
+  // Win chance as heart fill percentage
+  const heartFill = Math.round((1 / selectedMultiplier) * 100);
+
   return (
-    <div className="flex flex-col items-center gap-6 py-8 px-4 min-h-screen">
-      {/* Stats Bar */}
-      <div className="stats stats-vertical sm:stats-horizontal shadow bg-base-100 w-full max-w-2xl text-center">
-        <div className="stat">
-          <div className="stat-title">House</div>
-          <div className="stat-value text-lg">{formatClawd(houseBalance)}</div>
-          <div className="stat-desc">CLAWD</div>
-        </div>
-        <div className="stat">
-          <div className="stat-title">Bets</div>
-          <div className="stat-value text-lg">{totalBets?.toString() || "0"}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-title">Wins</div>
-          <div className="stat-value text-lg">{totalWins?.toString() || "0"}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-title">Paid</div>
-          <div className="stat-value text-lg">{formatClawd(totalPaidOut)}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-title">🔥 Burned</div>
-          <div className="stat-value text-lg">{formatClawd(totalBurned)}</div>
-        </div>
-      </div>
+    <div className="relative flex flex-col items-center gap-6 py-8 px-4 min-h-screen">
+      <FloatingHearts />
 
-      {isPaused && (
-        <div className="alert alert-warning w-full max-w-md">
-          <span>⚠️ Game is paused — withdrawal in progress. Existing bets can still be claimed.</span>
+      <div className="relative z-10 w-full max-w-lg flex flex-col items-center gap-6">
+        {/* Hero */}
+        <div className="text-center">
+          <div className="text-6xl mb-2" style={{ animation: "heartbeat 1.2s ease-in-out infinite" }}>💗</div>
+          <h1 className="text-5xl font-black text-primary tracking-tighter">1024x</h1>
+          <p className="text-sm opacity-50 italic mt-1">{lovePhrase}</p>
         </div>
-      )}
 
-      {/* Main Game Card — Betting */}
-      <div className="card bg-base-100 shadow-xl w-full max-w-md">
-        <div className="card-body items-center text-center">
-          <h2 className="card-title text-3xl font-black">1024x</h2>
-          <p className="text-sm opacity-70 mb-2">Pick your bet, pick your odds, roll as many times as you want</p>
-
-          {/* Bet Size */}
-          <div className="w-full">
-            <label className="label"><span className="label-text font-bold">Bet Size</span></label>
-            <div className="grid grid-cols-4 gap-2">
-              {BET_TIERS.map(tier => (
-                <button
-                  key={tier.label}
-                  className={`btn btn-sm ${selectedBet.label === tier.label ? "btn-primary" : "btn-outline"}`}
-                  onClick={() => setSelectedBet(tier)}
-                >
-                  {tier.label}
-                </button>
-              ))}
+        {/* Vital Signs — Stats */}
+        <div className="w-full ecg-bg rounded-2xl p-4 border border-primary/20">
+          <div className="text-xs font-bold text-primary/60 uppercase tracking-widest mb-3 text-center">♡ vital signs ♡</div>
+          <div className="grid grid-cols-5 gap-2 text-center">
+            <div>
+              <div className="text-xs opacity-50">House</div>
+              <div className="font-black text-sm">{formatClawd(houseBalance)}</div>
+            </div>
+            <div>
+              <div className="text-xs opacity-50">Beats</div>
+              <div className="font-black text-sm">{totalBets?.toString() || "0"}</div>
+            </div>
+            <div>
+              <div className="text-xs opacity-50">Wins</div>
+              <div className="font-black text-sm text-success">{totalWins?.toString() || "0"}</div>
+            </div>
+            <div>
+              <div className="text-xs opacity-50">Paid</div>
+              <div className="font-black text-sm">{formatClawd(totalPaidOut)}</div>
+            </div>
+            <div>
+              <div className="text-xs opacity-50">🔥 Burned</div>
+              <div className="font-black text-sm text-warning">{formatClawd(totalBurned)}</div>
             </div>
           </div>
+        </div>
 
-          {/* Multiplier */}
-          <div className="w-full mt-2">
-            <label className="label"><span className="label-text font-bold">Multiplier</span></label>
-            <div className="grid grid-cols-5 gap-2">
-              {MULTIPLIERS.map(mult => {
-                const affordable = canAfford(selectedBet.value, mult);
-                return (
+        {isPaused && (
+          <div className="alert alert-warning w-full">
+            <span>💤 Heart is resting — game paused. Existing bets can still be claimed.</span>
+          </div>
+        )}
+
+        {/* Main Betting Card */}
+        <div className="card bg-base-100 shadow-xl w-full heart-glow border border-primary/10">
+          <div className="card-body items-center text-center">
+            {/* Bet Size as heart-shaped buttons */}
+            <div className="w-full">
+              <label className="text-xs font-bold text-primary/70 uppercase tracking-widest">💝 Bet Size</label>
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {BET_TIERS.map(tier => (
                   <button
-                    key={mult}
-                    className={`btn btn-sm ${selectedMultiplier === mult ? "btn-secondary" : affordable ? "btn-outline" : "btn-disabled opacity-30"}`}
-                    disabled={!affordable}
-                    onClick={() => affordable && setSelectedMultiplier(mult)}
+                    key={tier.label}
+                    className={`btn btn-sm transition-all duration-300 ${
+                      selectedBet.label === tier.label
+                        ? "btn-primary scale-105 shadow-lg"
+                        : "btn-outline border-primary/30 hover:border-primary"
+                    }`}
+                    onClick={() => setSelectedBet(tier)}
                   >
-                    {mult}x
+                    {tier.label}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Payout Info */}
-          <div className="bg-base-200 rounded-lg p-3 w-full mt-3 text-sm">
-            <div className="flex justify-between">
-              <span className="opacity-70">Win chance</span>
-              <span className="font-bold">1 in {selectedMultiplier}</span>
+            {/* Multiplier Selection */}
+            <div className="w-full mt-4">
+              <label className="text-xs font-bold text-primary/70 uppercase tracking-widest">❤️‍🔥 Multiplier</label>
+              <div className="grid grid-cols-5 gap-2 mt-2">
+                {MULTIPLIERS.map(mult => {
+                  const affordable = canAfford(selectedBet.value, mult);
+                  return (
+                    <button
+                      key={mult}
+                      className={`btn btn-sm transition-all duration-300 ${
+                        selectedMultiplier === mult
+                          ? "btn-secondary scale-105 shadow-lg"
+                          : affordable
+                            ? "btn-outline border-secondary/30 hover:border-secondary"
+                            : "btn-disabled opacity-20"
+                      }`}
+                      disabled={!affordable}
+                      onClick={() => affordable && setSelectedMultiplier(mult)}
+                    >
+                      {mult}x
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="opacity-70">Payout</span>
-              <span className="font-bold text-success">{formatClawd(currentPayout)} CLAWD</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="opacity-70">🔥 Burn</span>
-              <span className="font-bold text-warning">{formatClawd(currentBurn)} CLAWD</span>
-            </div>
-          </div>
 
-          {connectedAddress && (
-            <div className="text-sm opacity-60 mt-1">
-              Balance: <span className="font-mono font-bold">{formatClawd(clawdBalance)}</span> CLAWD
+            {/* Payout Info — styled as a love letter */}
+            <div className="bg-base-200 rounded-2xl p-4 w-full mt-4 text-sm border border-primary/10">
+              <div className="flex justify-between items-center">
+                <span className="opacity-50">Love Odds</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-primary">{heartFill}%</span>
+                  <div className="w-16 h-2 bg-base-300 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-pink-400 to-rose-600 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.max(heartFill, 3)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="opacity-50">Payout</span>
+                <span className="font-black text-success">{formatClawd(currentPayout)} CLAWD 💰</span>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="opacity-50">Burn</span>
+                <span className="font-bold text-warning">{formatClawd(currentBurn)} 🔥</span>
+              </div>
             </div>
-          )}
 
-          {/* Action Button */}
-          <div className="w-full mt-3">
-            {!connectedAddress ? (
-              <div className="alert alert-info"><span>Connect your wallet to play</span></div>
-            ) : isWrongNetwork ? (
-              <button className="btn btn-warning btn-lg w-full" onClick={() => switchChain({ chainId: targetNetwork.id })}>Switch Network</button>
-            ) : isPaused ? (
-              <button className="btn btn-disabled btn-lg w-full">Game Paused</button>
-            ) : !hasEnoughBalance ? (
-              <div className="alert alert-warning"><span>Need at least {selectedBet.display} CLAWD</span></div>
-            ) : !houseCanPay ? (
-              <div className="alert alert-warning"><span>House can&apos;t cover this bet</span></div>
-            ) : needsApproval ? (
-              <button className="btn btn-primary btn-lg w-full" disabled={isApproving} onClick={handleApprove}>
-                {isApproving ? (<><span className="loading loading-spinner"></span>Approving...</>) : `Approve CLAWD`}
-              </button>
-            ) : (
-              <button className="btn btn-primary btn-lg w-full text-xl" disabled={isClicking} onClick={handleClick}>
-                {isClicking ? (<><span className="loading loading-spinner"></span>Rolling...</>) : `ROLL ${selectedBet.label} @ ${selectedMultiplier}x`}
-              </button>
-            )}
-            {awaitingWallet && (
-              <div className="text-sm text-center mt-2 opacity-70 animate-pulse">
-                👆 Open your wallet to confirm the transaction
+            {connectedAddress && (
+              <div className="text-sm opacity-50 mt-1">
+                Your CLAWD: <span className="font-mono font-black">{formatClawd(clawdBalance)}</span>
               </div>
             )}
-          </div>
-        </div>
-      </div>
 
-      {/* Rolling Animation — shown when any bet is waiting */}
-      {activeBets.some(b => b.status === "waiting") && (
-        <div className="card bg-base-100 shadow-xl w-full max-w-md">
-          <div className="card-body items-center">
-            <RollingAnimation multiplier={activeBets.find(b => b.status === "waiting")?.multiplier || 2} />
-          </div>
-        </div>
-      )}
-
-      {/* Active Bets */}
-      {activeBets.length > 0 && (
-        <div className="card bg-base-100 shadow-xl w-full max-w-md">
-          <div className="card-body">
-            <h2 className="card-title text-lg">
-              🎲 Your Active Bets
-              {claimableBets.length > 0 && (
-                <span className="badge badge-success">{claimableBets.length} won!</span>
+            {/* The Big Heart Button */}
+            <div className="w-full mt-4">
+              {!connectedAddress ? (
+                <div className="alert bg-primary/10 border border-primary/20">
+                  <span className="text-primary">💗 Connect your wallet to feel the love</span>
+                </div>
+              ) : isWrongNetwork ? (
+                <button className="btn btn-warning btn-lg w-full rounded-2xl" onClick={() => switchChain({ chainId: targetNetwork.id })}>
+                  Switch to Base 💫
+                </button>
+              ) : isPaused ? (
+                <button className="btn btn-disabled btn-lg w-full rounded-2xl">Heart Resting 💤</button>
+              ) : !hasEnoughBalance ? (
+                <div className="alert bg-warning/10 border border-warning/20">
+                  <span>Need at least {selectedBet.display} CLAWD 💔</span>
+                </div>
+              ) : !houseCanPay ? (
+                <div className="alert bg-warning/10 border border-warning/20">
+                  <span>House heart can&apos;t cover this bet 💔</span>
+                </div>
+              ) : needsApproval ? (
+                <button
+                  className="btn btn-primary btn-lg w-full rounded-2xl text-lg"
+                  disabled={isApproving}
+                  onClick={handleApprove}
+                >
+                  {isApproving ? (<><span className="loading loading-spinner"></span> Approving...</>) : "💝 Approve CLAWD"}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary btn-lg w-full rounded-2xl text-xl font-black shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+                  disabled={isClicking}
+                  onClick={handleClick}
+                  style={!isClicking ? { animation: "heartbeat 2s ease-in-out infinite" } : {}}
+                >
+                  {isClicking ? (
+                    <><span className="loading loading-spinner"></span> Heartbeating...</>
+                  ) : (
+                    <>💗 BEAT {selectedBet.label} @ {selectedMultiplier}x</>
+                  )}
+                </button>
               )}
-            </h2>
-            <div className="space-y-3">
-              {activeBets.map((bet) => {
-                const blocksLeft = Math.max(0, bet.commitBlock + 256 - currentBlock);
-                const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
-                const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
-
-                return (
-                  <div key={`${bet.betIndex}-${bet.commitBlock}`} className={`p-3 rounded-lg ${bet.status === "won" ? "bg-success/15 border border-success/30" : "bg-base-200"}`}>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className="font-bold">{betLabel} @ {bet.multiplier}x</span>
-                        {bet.status === "won" && (
-                          <span className="text-success font-bold ml-2">→ {formatClawd(payout)} CLAWD</span>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        {bet.status === "waiting" && (
-                          <span className="text-xs opacity-60">waiting for block...</span>
-                        )}
-                        {bet.status === "won" && (
-                          <div>
-                            <div className="text-xs opacity-60 mb-1">
-                              ⏱️ {blocksLeft} blocks left
-                            </div>
-                            <button
-                              className="btn btn-success btn-sm"
-                              disabled={isClaiming === bet.betIndex}
-                              onClick={() => handleClaim(bet)}
-                            >
-                              {isClaiming === bet.betIndex ? <span className="loading loading-spinner loading-xs"></span> : "🏆 Claim"}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {bet.status === "won" && blocksLeft < 50 && (
-                      <div className="text-xs text-warning mt-1">⚠️ Claim soon! Only {blocksLeft} blocks remaining</div>
-                    )}
-                  </div>
-                );
-              })}
+              {awaitingWallet && (
+                <div className="text-sm text-center mt-2 opacity-60 animate-pulse">
+                  💕 Open your wallet to confirm the heartbeat...
+                </div>
+              )}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Recent Results */}
-      {recentFinished.length > 0 && (
-        <div className="card bg-base-100 shadow-xl w-full max-w-md">
-          <div className="card-body">
-            <div className="flex justify-between items-center">
-              <h2 className="card-title text-lg">📜 Recent Results</h2>
-              <button className="btn btn-ghost btn-xs" onClick={clearFinished}>Clear</button>
+        {/* Heartbeat Monitor — when waiting */}
+        {activeBets.some(b => b.status === "waiting") && (
+          <div className="card bg-base-100 shadow-xl w-full border border-primary/10">
+            <div className="card-body items-center p-4">
+              <HeartbeatMonitor multiplier={activeBets.find(b => b.status === "waiting")?.multiplier || 2} />
             </div>
-            <div className="space-y-1">
-              {recentFinished.reverse().map((bet, i) => {
-                const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
-                return (
-                  <div key={i} className="flex justify-between text-sm p-1">
-                    <span>{betLabel} @ {bet.multiplier}x</span>
-                    <span className={bet.status === "claimed" ? "text-success" : bet.status === "expired" ? "text-warning" : "opacity-50"}>
-                      {bet.status === "claimed" ? "✅ Claimed" : bet.status === "expired" ? "⏰ Expired" : "❌ Lost"}
+          </div>
+        )}
+
+        {/* Active Bets */}
+        {activeBets.length > 0 && (
+          <div className="card bg-base-100 shadow-xl w-full border border-primary/10">
+            <div className="card-body">
+              <h2 className="card-title text-lg">
+                💓 Active Heartbeats
+                {claimableBets.length > 0 && (
+                  <span className="badge badge-success animate-pulse">{claimableBets.length} won!</span>
+                )}
+              </h2>
+              <div className="space-y-3">
+                {activeBets.map((bet) => {
+                  const blocksLeft = Math.max(0, bet.commitBlock + 256 - currentBlock);
+                  const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+                  const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
+                  const urgency = blocksLeft < 50;
+
+                  return (
+                    <div
+                      key={`${bet.betIndex}-${bet.commitBlock}`}
+                      className={`p-3 rounded-xl transition-all duration-300 ${
+                        bet.status === "won"
+                          ? "bg-success/15 border-2 border-success/30 shadow-md"
+                          : "bg-base-200 border border-base-300"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="font-bold">{betLabel} @ {bet.multiplier}x</span>
+                          {bet.status === "won" && (
+                            <span className="text-success font-black ml-2">→ {formatClawd(payout)} CLAWD 🎉</span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {bet.status === "waiting" && (
+                            <span className="text-xs opacity-50" style={{ animation: "heartbeat 1.2s ease-in-out infinite" }}>💗</span>
+                          )}
+                          {bet.status === "won" && (
+                            <div>
+                              <div className="text-xs opacity-50 mb-1">⏱️ {blocksLeft} blocks</div>
+                              <button
+                                className="btn btn-success btn-sm rounded-xl"
+                                disabled={isClaiming === bet.betIndex}
+                                onClick={() => handleClaim(bet)}
+                              >
+                                {isClaiming === bet.betIndex ? <span className="loading loading-spinner loading-xs"></span> : "💖 Claim"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {bet.status === "won" && urgency && (
+                        <div className="text-xs text-warning mt-1 animate-pulse">⚠️ Claim fast! Only {blocksLeft} beats left 💔</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Results */}
+        {recentFinished.length > 0 && (
+          <div className="card bg-base-100 shadow-xl w-full border border-primary/10">
+            <div className="card-body">
+              <div className="flex justify-between items-center">
+                <h2 className="card-title text-lg">📜 Love Letters (Results)</h2>
+                <button className="btn btn-ghost btn-xs" onClick={clearFinished}>Clear</button>
+              </div>
+              <div className="space-y-1">
+                {recentFinished.reverse().map((bet, i) => {
+                  const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
+                  return (
+                    <div key={i} className="flex justify-between text-sm p-2 rounded-lg hover:bg-base-200 transition-colors">
+                      <span>{betLabel} @ {bet.multiplier}x</span>
+                      <span className={
+                        bet.status === "claimed" ? "text-success font-bold" :
+                        bet.status === "expired" ? "text-warning" : "opacity-40"
+                      }>
+                        {bet.status === "claimed" ? "💖 Claimed" : bet.status === "expired" ? "💔 Expired" : "💔 Lost"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* How It Works — Love Story */}
+        <div className="card bg-base-100 shadow-xl w-full border border-primary/10">
+          <div className="card-body">
+            <h2 className="card-title text-lg">💌 How Love Works</h2>
+            <div className="space-y-3 text-sm">
+              <div className="flex gap-3 items-start">
+                <span className="text-xl">💗</span>
+                <p className="m-0"><span className="font-bold">Feel the Beat</span> — Choose your bet & multiplier. Every click is a heartbeat.</p>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="text-xl">💓</span>
+                <p className="m-0"><span className="font-bold">Wait for Fate</span> — After 1 block, destiny reveals itself. Winners glow green.</p>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="text-xl">💖</span>
+                <p className="m-0"><span className="font-bold">Claim Your Love</span> — Hit claim within 256 blocks (~8 min). Don&apos;t leave love waiting.</p>
+              </div>
+            </div>
+            <div className="divider my-1 before:bg-primary/10 after:bg-primary/10"></div>
+            <p className="text-xs opacity-40 text-center">
+              2% house edge • 1% burned every heartbeat 🔥 • commit-reveal fairness • love is concurrent
+            </p>
+          </div>
+        </div>
+
+        {/* Recent Winners */}
+        {winEvents && winEvents.length > 0 && (
+          <div className="card bg-base-100 shadow-xl w-full border border-primary/10">
+            <div className="card-body">
+              <h2 className="card-title text-lg">🏆 Loved & Won</h2>
+              <div className="space-y-2">
+                {winEvents.slice(0, 10).map((event, i) => (
+                  <div key={i} className="flex items-center justify-between p-2 bg-success/10 rounded-xl">
+                    <Address address={event.args.player} />
+                    <span className="font-bold text-success">
+                      {event.args.multiplier?.toString()}x → +{formatClawd(event.args.payout)} 🦞
                     </span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* How It Works */}
-      <div className="card bg-base-100 shadow-xl w-full max-w-md">
-        <div className="card-body">
-          <h2 className="card-title text-lg">How It Works</h2>
-          <div className="space-y-2 text-sm">
-            <div className="flex gap-3 items-start">
-              <span className="badge badge-primary badge-sm mt-1">1</span>
-              <p><span className="font-bold">Pick &amp; Roll</span> — Choose bet size + multiplier. Roll as many times as you want!</p>
-            </div>
-            <div className="flex gap-3 items-start">
-              <span className="badge badge-primary badge-sm mt-1">2</span>
-              <p><span className="font-bold">Check</span> — After 1 block, each roll resolves. Winners glow green.</p>
-            </div>
-            <div className="flex gap-3 items-start">
-              <span className="badge badge-primary badge-sm mt-1">3</span>
-              <p><span className="font-bold">Claim</span> — Hit claim within 256 blocks (~8 min). Countdown shows time remaining.</p>
-            </div>
-          </div>
-          <div className="divider my-1"></div>
-          <p className="text-xs opacity-50">
-            2% house edge • 1% burned every roll 🔥 • Commit-reveal fairness • Multiple concurrent bets supported
-          </p>
-          <p className="text-xs opacity-40 mt-1">
-            ⚠️ Solvency is best-effort. Multiple simultaneous large wins could exceed house balance. Play responsibly. Not financial advice.
-          </p>
-        </div>
+        )}
       </div>
-
-      {/* Recent Winners (global) */}
-      {winEvents && winEvents.length > 0 && (
-        <div className="card bg-base-100 shadow-xl w-full max-w-md">
-          <div className="card-body">
-            <h2 className="card-title text-lg">🏆 Recent Winners</h2>
-            <div className="space-y-2">
-              {winEvents.slice(0, 10).map((event, i) => (
-                <div key={i} className="flex items-center justify-between p-2 bg-success/10 rounded-lg">
-                  <Address address={event.args.player} />
-                  <span className="font-bold text-success">
-                    {event.args.multiplier?.toString()}x → +{formatClawd(event.args.payout)} 🦞
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -2,11 +2,35 @@
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
-
 @theme {
   --shadow-center: 0 0 12px -2px rgb(0 0 0 / 0.05);
   --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-heartbeat: heartbeat 1.2s ease-in-out infinite;
+  --animate-flatline: flatline 2s linear infinite;
+  --animate-glow: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.15); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.08); }
+  56% { transform: scale(1); }
+}
+
+@keyframes flatline {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes glow {
+  from { box-shadow: 0 0 10px rgba(255, 50, 80, 0.3), 0 0 20px rgba(255, 50, 80, 0.1); }
+  to { box-shadow: 0 0 20px rgba(255, 50, 80, 0.5), 0 0 40px rgba(255, 50, 80, 0.2); }
+}
+
+@keyframes ecg-line {
+  0% { stroke-dashoffset: 1000; }
+  100% { stroke-dashoffset: 0; }
 }
 
 @plugin "daisyui" {
@@ -18,63 +42,54 @@
 @plugin "daisyui/theme" {
   name: "light";
 
-  --color-primary: #93bbfb;
-  --color-primary-content: #212638;
-  --color-secondary: #dae8ff;
-  --color-secondary-content: #212638;
-  --color-accent: #93bbfb;
-  --color-accent-content: #212638;
-  --color-neutral: #212638;
-  --color-neutral-content: #ffffff;
-  --color-base-100: #ffffff;
-  --color-base-200: #f4f8ff;
-  --color-base-300: #dae8ff;
-  --color-base-content: #212638;
-  --color-info: #93bbfb;
-  --color-success: #34eeb6;
-  --color-warning: #ffcf72;
-  --color-error: #ff8863;
+  --color-primary: #e11d48;
+  --color-primary-content: #fff1f2;
+  --color-secondary: #fb7185;
+  --color-secondary-content: #4c0519;
+  --color-accent: #f43f5e;
+  --color-accent-content: #fff1f2;
+  --color-neutral: #1f1225;
+  --color-neutral-content: #fce7f3;
+  --color-base-100: #fdf2f8;
+  --color-base-200: #fce7f3;
+  --color-base-300: #fbcfe8;
+  --color-base-content: #1f1225;
+  --color-info: #be185d;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #dc2626;
 
   --radius-field: 9999rem;
-  --radius-box: 1rem;
+  --radius-box: 1.25rem;
   --tt-tailw: 6px;
 }
 
 @plugin "daisyui/theme" {
   name: "dark";
 
-  --color-primary: #212638;
-  --color-primary-content: #f9fbff;
-  --color-secondary: #323f61;
-  --color-secondary-content: #f9fbff;
-  --color-accent: #4969a6;
-  --color-accent-content: #f9fbff;
-  --color-neutral: #f9fbff;
-  --color-neutral-content: #385183;
-  --color-base-100: #385183;
-  --color-base-200: #2a3655;
-  --color-base-300: #212638;
-  --color-base-content: #f9fbff;
-  --color-info: #385183;
-  --color-success: #34eeb6;
-  --color-warning: #ffcf72;
-  --color-error: #ff8863;
+  --color-primary: #f43f5e;
+  --color-primary-content: #fff1f2;
+  --color-secondary: #9f1239;
+  --color-secondary-content: #fce7f3;
+  --color-accent: #e11d48;
+  --color-accent-content: #fff1f2;
+  --color-neutral: #fce7f3;
+  --color-neutral-content: #1f1225;
+  --color-base-100: #1a0a1e;
+  --color-base-200: #120718;
+  --color-base-300: #0d0512;
+  --color-base-content: #fce7f3;
+  --color-info: #be185d;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #dc2626;
 
   --radius-field: 9999rem;
-  --radius-box: 1rem;
-
+  --radius-box: 1.25rem;
   --tt-tailw: 6px;
   --tt-bg: var(--color-primary);
 }
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
   *,
   ::after,
@@ -92,10 +107,7 @@
     min-height: 100vh;
   }
 
-  h1,
-  h2,
-  h3,
-  h4 {
+  h1, h2, h3, h4 {
     margin-bottom: 0.5rem;
     line-height: 1;
   }
@@ -120,4 +132,21 @@
 
 .link:hover {
   opacity: 80%;
+}
+
+/* Heart-specific utilities */
+.heart-glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+.ecg-bg {
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(244, 63, 94, 0.05) 25%, 
+    rgba(244, 63, 94, 0.1) 50%, 
+    rgba(244, 63, 94, 0.05) 75%, 
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: flatline 3s linear infinite;
 }

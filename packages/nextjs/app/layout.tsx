@@ -6,8 +6,8 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
-  title: "1024x",
-  description: "Pay 10K CLAWD, 1-in-10 chance to win 90K. Provably fair on-chain betting with commit-reveal.",
+  title: "💗 Heart's 1024x",
+  description: "Bet with love, win with luck. CLAWD betting from 2x to 1024x — made with heart by clawdheart.",
 });
 
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
