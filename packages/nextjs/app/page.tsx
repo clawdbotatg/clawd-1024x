@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Address } from "@scaffold-ui/components";
 import type { NextPage } from "next";
 import { encodePacked, formatEther, keccak256, parseEther } from "viem";
@@ -11,6 +11,39 @@ import { useScaffoldReadContract } from "~~/hooks/scaffold-eth/useScaffoldReadCo
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth/useScaffoldWriteContract";
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { notification } from "~~/utils/scaffold-eth";
+
+// Rolling animation component
+function RollingAnimation({ multiplier }: { multiplier: number }) {
+  const [digits, setDigits] = useState<string[]>(["0", "0", "0", "0", "0", "0"]);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setDigits(prev =>
+        prev.map(() => {
+          const chars = "0123456789ABCDEF";
+          return chars[Math.floor(Math.random() * chars.length)];
+        }),
+      );
+    }, 50);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center gap-3 py-4">
+      <div className="font-mono text-3xl tracking-widest text-primary font-bold">
+        {digits.map((d, i) => (
+          <span key={i} className="inline-block w-8 text-center animate-pulse">
+            {d}
+          </span>
+        ))}
+      </div>
+      <div className="text-lg font-bold animate-bounce">Rolling for {multiplier}x...</div>
+    </div>
+  );
+}
 
 const BET_TIERS = [
   { value: parseEther("10000"), label: "10K", display: "10,000" },
@@ -77,6 +110,7 @@ const Home: NextPage = () => {
   const [pendingBets, setPendingBets] = useState<PendingBet[]>([]);
   const [isApproving, setIsApproving] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
+  const [awaitingWallet, setAwaitingWallet] = useState(false);
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
 
@@ -190,19 +224,23 @@ const Home: NextPage = () => {
   const handleApprove = useCallback(async () => {
     if (!connectedAddress) return;
     setIsApproving(true);
+    setAwaitingWallet(true);
     try {
       await approveWrite({ functionName: "approve", args: [contractAddress, selectedBet.value * 10n] });
+      setAwaitingWallet(false);
       await refetchAllowance();
       notification.success("CLAWD approved!");
     } catch (e) {
       notification.error(parseError(e));
     }
     setIsApproving(false);
+    setAwaitingWallet(false);
   }, [connectedAddress, approveWrite, contractAddress, refetchAllowance, selectedBet]);
 
   const handleClick = useCallback(async () => {
     if (!connectedAddress || !publicClient) return;
     setIsClicking(true);
+    setAwaitingWallet(true);
     try {
       const secret = randomBytes32();
       const salt = randomBytes32();
@@ -213,6 +251,7 @@ const Home: NextPage = () => {
         args: [dataHash, selectedBet.value, BigInt(selectedMultiplier)],
       });
 
+      setAwaitingWallet(false);
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
       const commitBlock = Number(receipt.blockNumber);
 
@@ -243,6 +282,7 @@ const Home: NextPage = () => {
       notification.error(parseError(e));
     }
     setIsClicking(false);
+    setAwaitingWallet(false);
   }, [connectedAddress, gameWrite, publicClient, selectedBet, selectedMultiplier]);
 
   const handleClaim = useCallback(async (bet: PendingBet) => {
@@ -325,7 +365,6 @@ const Home: NextPage = () => {
       {/* Main Game Card — Betting */}
       <div className="card bg-base-100 shadow-xl w-full max-w-md">
         <div className="card-body items-center text-center">
-          <div className="text-5xl mb-1">🎰</div>
           <h2 className="card-title text-3xl font-black">1024x</h2>
           <p className="text-sm opacity-70 mb-2">Pick your bet, pick your odds, roll as many times as you want</p>
 
@@ -405,12 +444,26 @@ const Home: NextPage = () => {
               </button>
             ) : (
               <button className="btn btn-primary btn-lg w-full text-xl" disabled={isClicking} onClick={handleClick}>
-                {isClicking ? (<><span className="loading loading-spinner"></span>Rolling...</>) : `🎰 ROLL ${selectedBet.label} @ ${selectedMultiplier}x`}
+                {isClicking ? (<><span className="loading loading-spinner"></span>Rolling...</>) : `ROLL ${selectedBet.label} @ ${selectedMultiplier}x`}
               </button>
+            )}
+            {awaitingWallet && (
+              <div className="text-sm text-center mt-2 opacity-70 animate-pulse">
+                👆 Open your wallet to confirm the transaction
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Rolling Animation — shown when any bet is waiting */}
+      {activeBets.some(b => b.status === "waiting") && (
+        <div className="card bg-base-100 shadow-xl w-full max-w-md">
+          <div className="card-body items-center">
+            <RollingAnimation multiplier={activeBets.find(b => b.status === "waiting")?.multiplier || 2} />
+          </div>
+        </div>
+      )}
 
       {/* Active Bets */}
       {activeBets.length > 0 && (
@@ -423,7 +476,7 @@ const Home: NextPage = () => {
               )}
             </h2>
             <div className="space-y-3">
-              {activeBets.map((bet, i) => {
+              {activeBets.map((bet) => {
                 const blocksLeft = Math.max(0, bet.commitBlock + 256 - currentBlock);
                 const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
                 const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
@@ -439,7 +492,7 @@ const Home: NextPage = () => {
                       </div>
                       <div className="text-right">
                         {bet.status === "waiting" && (
-                          <span className="loading loading-dots loading-sm"></span>
+                          <span className="text-xs opacity-60">waiting for block...</span>
                         )}
                         {bet.status === "won" && (
                           <div>
