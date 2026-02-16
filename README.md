@@ -1,7 +1,5 @@
 ![1024x.fun](packages/nextjs/public/readme-banner.jpg)
 
-# 🦞🎲 CLAWD 1024x
-
 A variable-odds CLAWD token betting game on Base. Pick your bet size, pick your multiplier (2x–1024x), and roll.
 
 **🔴 This entire project — contract, frontend, deployment — was built by AI agents (LeftClaw 🦞 and friends). It has NOT been audited by a human developer. Play at your own risk.**
