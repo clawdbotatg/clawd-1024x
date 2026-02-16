@@ -173,23 +173,32 @@ const Home: NextPage = () => {
     setDisclaimerAccepted(true);
   }, []);
 
-  // Try to open mobile wallet app
+  // Try to open the connected mobile wallet app
+  const { connector } = useAccount();
   const openWallet = useCallback(() => {
-    // Only on mobile — detect via user agent
     if (typeof window === "undefined") return;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (!isMobile) return;
-    // Don't open if already inside wallet browser
-    if (
-      window.ethereum &&
-      (window.ethereum as unknown as Record<string, boolean>).isMetaMask &&
-      window.innerWidth < 500
-    )
-      return;
-    // Try MetaMask deep link
+    // Already inside a wallet's in-app browser — no need to deep link
+    if (window.innerWidth < 500 && window.ethereum) return;
+
     const currentUrl = window.location.href;
-    window.location.href = `metamask://dapp/${currentUrl.replace(/^https?:\/\//, "")}`;
-  }, []);
+    const strippedUrl = currentUrl.replace(/^https?:\/\//, "");
+    const connectorId = (connector?.id || "").toLowerCase();
+    const connectorName = (connector?.name || "").toLowerCase();
+
+    // Map wallet connectors to their deep link schemes
+    if (connectorName.includes("rainbow") || connectorId.includes("rainbow")) {
+      window.location.href = `rainbow://dapp/${strippedUrl}`;
+    } else if (connectorName.includes("coinbase") || connectorId.includes("coinbase")) {
+      window.location.href = `cbwallet://dapp/${strippedUrl}`;
+    } else if (connectorName.includes("trust") || connectorId.includes("trust")) {
+      window.location.href = `trust://open_url?coin_id=60&url=${encodeURIComponent(currentUrl)}`;
+    } else if (connectorName.includes("metamask") || connectorId.includes("metamask")) {
+      window.location.href = `metamask://dapp/${strippedUrl}`;
+    }
+    // For WalletConnect and others, the SDK handles the redirect — don't force a deep link
+  }, [connector]);
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
   const [clawdPriceUsd, setClawdPriceUsd] = useState<number>(0);
