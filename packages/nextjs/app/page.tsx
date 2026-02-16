@@ -477,7 +477,14 @@ const Home: NextPage = () => {
           {/* Bet Size */}
           <div className="w-full">
             <label className="label">
-              <span className="label-text font-bold">Bet Size</span>
+              <span className="label-text font-bold">
+                Bet Size{" "}
+                {clawdPriceUsd > 0 && (
+                  <span className="font-normal opacity-60">
+                    (${(Number(formatEther(selectedBet.value)) * clawdPriceUsd).toFixed(2)})
+                  </span>
+                )}
+              </span>
             </label>
             <div className="grid grid-cols-4 gap-2">
               {BET_TIERS.map(tier => (
