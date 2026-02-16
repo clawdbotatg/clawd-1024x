@@ -751,7 +751,7 @@ const Home: NextPage = () => {
       )}
 
       {/* Stats Bar — bottom */}
-      <div className="flex flex-wrap justify-center gap-4 text-sm opacity-70 w-full max-w-md mt-4">
+      <div className="flex flex-wrap justify-center gap-4 text-sm opacity-70 w-full max-w-md mt-4 bg-base-300/70 backdrop-blur-sm rounded-lg px-4 py-2">
         <span>Bets {totalBets?.toString() || "0"}</span>
         <span>Wins {totalWins?.toString() || "0"}</span>
         <span>Paid {formatClawd(totalPaidOut)}</span>

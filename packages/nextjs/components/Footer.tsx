@@ -40,7 +40,7 @@ export const Footer = () => {
         </div>
       </div>
       <div className="w-full">
-        <div className="flex flex-col items-center gap-2 text-sm py-4">
+        <div className="flex flex-col items-center gap-2 text-sm py-4 bg-base-300/70 backdrop-blur-sm rounded-lg px-4 mx-auto max-w-md">
           <div className="flex items-center gap-2">
             <span className="opacity-50">Contract:</span>
             <Address address={CONTRACT_ADDRESS} />
