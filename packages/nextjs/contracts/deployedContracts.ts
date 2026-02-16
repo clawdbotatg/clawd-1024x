@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   8453: {
     TenTwentyFourX: {
-      address: "0xcdd04b6f5e635a71b20aefd5e477557447d498fe",
+      address: "0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc",
       abi: [
       {
             "type": "constructor",
@@ -247,58 +247,6 @@ const deployedContracts = {
             "inputs": [],
             "outputs": [],
             "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "forfeit",
-            "inputs": [
-                  {
-                        "name": "betIndex",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "getActiveBets",
-            "inputs": [
-                  {
-                        "name": "player",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "indices",
-                        "type": "uint256[]",
-                        "internalType": "uint256[]"
-                  },
-                  {
-                        "name": "commitBlocks",
-                        "type": "uint256[]",
-                        "internalType": "uint256[]"
-                  },
-                  {
-                        "name": "betAmounts",
-                        "type": "uint256[]",
-                        "internalType": "uint256[]"
-                  },
-                  {
-                        "name": "multipliers",
-                        "type": "uint256[]",
-                        "internalType": "uint256[]"
-                  },
-                  {
-                        "name": "blocksLeftArr",
-                        "type": "uint256[]",
-                        "internalType": "uint256[]"
-                  }
-            ],
-            "stateMutability": "view"
       },
       {
             "type": "function",
@@ -624,19 +572,6 @@ const deployedContracts = {
       {
             "type": "function",
             "name": "totalBurned",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "totalOutstandingPotentialPayouts",
             "inputs": [],
             "outputs": [
                   {

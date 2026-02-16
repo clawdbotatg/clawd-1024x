@@ -234,33 +234,19 @@ const Home: NextPage = () => {
     checkBets();
   }, [currentBlock, publicClient, connectedAddress]);
 
-  // Auto-forfeit expired bets to release outstanding payouts from contract
-  const handleForfeitExpired = useCallback(async () => {
+  // Clean up expired bets from local storage (no contract call needed)
+  useEffect(() => {
     if (!connectedAddress) return;
     const bets = loadBets(connectedAddress);
     const expired = bets.filter(b => b.status === "expired");
     if (expired.length === 0) return;
-
-    try {
-      for (const bet of expired) {
-        await gameWrite({ functionName: "forfeit", args: [BigInt(bet.betIndex)] });
-        const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
-        if (idx >= 0) bets[idx].status = "lost"; // Mark as lost after forfeit
-      }
-      saveBets(connectedAddress, bets);
-      setPendingBets([...bets]);
-    } catch {
-      // Silently fail — might already be forfeited
+    for (const bet of expired) {
+      const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
+      if (idx >= 0) bets[idx].status = "lost";
     }
-  }, [connectedAddress, gameWrite]);
-
-  // Auto-forfeit when expired bets detected
-  useEffect(() => {
-    const expired = pendingBets.filter(b => b.status === "expired");
-    if (expired.length > 0) {
-      handleForfeitExpired();
-    }
-  }, [pendingBets, handleForfeitExpired]);
+    saveBets(connectedAddress, bets);
+    setPendingBets([...bets]);
+  }, [connectedAddress, pendingBets]);
 
   const handleApprove = useCallback(async () => {
     if (!connectedAddress) return;
