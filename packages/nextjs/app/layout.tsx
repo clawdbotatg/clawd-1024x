@@ -6,7 +6,7 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
-  title: "Lucky Click",
+  title: "1024x",
   description: "Pay 10K CLAWD, 1-in-10 chance to win 90K. Provably fair on-chain betting with commit-reveal.",
 });
 

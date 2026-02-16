@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Address } from "@scaffold-ui/components";
 import type { NextPage } from "next";
 import { encodePacked, formatEther, keccak256, parseEther } from "viem";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useSwitchChain } from "wagmi";
 import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
 import { useScaffoldEventHistory } from "~~/hooks/scaffold-eth/useScaffoldEventHistory";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth/useScaffoldReadContract";
@@ -67,6 +67,7 @@ function parseError(e: unknown): string {
 
 const Home: NextPage = () => {
   const { address: connectedAddress, chain } = useAccount();
+  const { switchChain } = useSwitchChain();
   const { targetNetwork } = useTargetNetwork();
   const publicClient = usePublicClient({ chainId: targetNetwork.id });
   const isWrongNetwork = chain?.id !== targetNetwork.id;
@@ -391,7 +392,7 @@ const Home: NextPage = () => {
             {!connectedAddress ? (
               <div className="alert alert-info"><span>Connect your wallet to play</span></div>
             ) : isWrongNetwork ? (
-              <button className="btn btn-warning btn-lg w-full" disabled>Switch Network</button>
+              <button className="btn btn-warning btn-lg w-full" onClick={() => switchChain({ chainId: targetNetwork.id })}>Switch Network</button>
             ) : isPaused ? (
               <button className="btn btn-disabled btn-lg w-full">Game Paused</button>
             ) : !hasEnoughBalance ? (
