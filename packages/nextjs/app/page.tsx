@@ -455,31 +455,13 @@ const Home: NextPage = () => {
 
   return (
     <div className="flex flex-col items-center gap-6 py-8 px-4 min-h-screen">
-      {/* Stats Bar */}
-      <div className="stats stats-vertical sm:stats-horizontal shadow bg-base-100 w-full max-w-2xl text-center">
-        <div className="stat">
-          <div className="stat-title">House</div>
-          <div className="stat-value text-lg">{formatClawd(houseBalance)}</div>
-          <div className="stat-desc">{formatUsd(houseBalance) || "CLAWD"}</div>
+      {/* Header */}
+      <div className="text-center">
+        <h1 className="text-5xl font-black tracking-tight">1024x.fun</h1>
+        <div className="text-2xl font-bold mt-2 font-mono">
+          {formatClawd(houseBalance)} <span className="opacity-60 text-lg">CLAWD</span>
         </div>
-        <div className="stat">
-          <div className="stat-title">Bets</div>
-          <div className="stat-value text-lg">{totalBets?.toString() || "0"}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-title">Wins</div>
-          <div className="stat-value text-lg">{totalWins?.toString() || "0"}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-title">Paid</div>
-          <div className="stat-value text-lg">{formatClawd(totalPaidOut)}</div>
-          <div className="stat-desc">{formatUsd(totalPaidOut)}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-title">🔥 Burned</div>
-          <div className="stat-value text-lg">{formatClawd(totalBurned)}</div>
-          <div className="stat-desc">{formatUsd(totalBurned)}</div>
-        </div>
+        {formatUsd(houseBalance) && <div className="text-sm opacity-50">{formatUsd(houseBalance)}</div>}
       </div>
 
       {isPaused && (
@@ -491,7 +473,6 @@ const Home: NextPage = () => {
       {/* Main Game Card — Betting */}
       <div className="card bg-base-100 shadow-xl w-full max-w-md">
         <div className="card-body items-center text-center">
-          <h2 className="card-title text-3xl font-black">1024x</h2>
           <p className="text-sm opacity-70 mb-2">Pick your bet, pick your odds, roll as many times as you want</p>
 
           {/* Bet Size */}
@@ -748,6 +729,14 @@ const Home: NextPage = () => {
           </div>
         </div>
       )}
+
+      {/* Stats Bar — bottom */}
+      <div className="flex flex-wrap justify-center gap-4 text-sm opacity-70 w-full max-w-md mt-4">
+        <span>Bets {totalBets?.toString() || "0"}</span>
+        <span>Wins {totalWins?.toString() || "0"}</span>
+        <span>Paid {formatClawd(totalPaidOut)}</span>
+        <span>🔥 Burned {formatClawd(totalBurned)}</span>
+      </div>
     </div>
   );
 };
