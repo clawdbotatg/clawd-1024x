@@ -153,6 +153,9 @@ const Home: NextPage = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [awaitingWallet, setAwaitingWallet] = useState(false);
+  const [lastResult, setLastResult] = useState<{ type: "won" | "lost"; multiplier: number; betLabel: string } | null>(
+    null,
+  );
 
   // Try to open mobile wallet app
   const openWallet = useCallback(() => {
@@ -293,7 +296,11 @@ const Home: NextPage = () => {
           const isWinner = BigInt(randomSeed) % BigInt(bet.multiplier) === 0n;
 
           bet.status = isWinner ? "won" : "lost";
+          const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
+          setLastResult({ type: isWinner ? "won" : "lost", multiplier: bet.multiplier, betLabel });
           if (isWinner) fireWinConfetti();
+          // Auto-clear result after 4 seconds
+          setTimeout(() => setLastResult(null), 4000);
           changed = true;
         } catch {}
       }
@@ -603,6 +610,23 @@ const Home: NextPage = () => {
         >
           <div className="card-body items-center">
             <RollingAnimation multiplier={activeBets.find(b => b.status === "waiting")?.multiplier || 2} />
+          </div>
+        </div>
+      )}
+
+      {/* Result Flash — shows briefly after a roll resolves */}
+      {lastResult && !activeBets.some(b => b.status === "waiting") && (
+        <div
+          className={`card shadow-xl w-full max-w-md border-2 ${
+            lastResult.type === "won" ? "border-success bg-success/20" : "border-error/50 bg-error/10"
+          }`}
+        >
+          <div className="card-body items-center text-center py-6">
+            <div className="text-5xl mb-2">{lastResult.type === "won" ? "🎉" : "💀"}</div>
+            <div className="text-2xl font-black">{lastResult.type === "won" ? "YOU WON!" : "REKT"}</div>
+            <div className="text-sm opacity-70">
+              {lastResult.betLabel} @ {lastResult.multiplier}x
+            </div>
           </div>
         </div>
       )}
