@@ -68,7 +68,7 @@ contract TenTwentyFourXTest is Test {
         uint256 balBefore = token.balanceOf(player);
         game.reveal(0, winningSecret, salt);
         uint256 balAfter = token.balanceOf(player);
-        assertEq(balAfter - balBefore, 98_000 * 1e18);
+        assertEq(balAfter - balBefore, 97_020 * 1e18); // 98K gross - 1% claim burn
         vm.stopPrank();
     }
 
@@ -112,7 +112,7 @@ contract TenTwentyFourXTest is Test {
         uint256 balBefore = token.balanceOf(player);
         game.batchReveal(indices, secrets, salts);
         uint256 balAfter = token.balanceOf(player);
-        assertEq(balAfter - balBefore, 39_200 * 1e18);
+        assertEq(balAfter - balBefore, 38_808 * 1e18); // 39,200 gross - 1% claim burn
         assertEq(game.totalWins(), 2);
         vm.stopPrank();
     }
@@ -227,8 +227,8 @@ contract TenTwentyFourXTest is Test {
     }
 
     function testPayoutCalculation() public view {
-        assertEq(game.getPayoutFor(BET_10K, 2), 19_600 * 1e18);
-        assertEq(game.getPayoutFor(BET_2K, 1024), 2_007_040 * 1e18);
+        assertEq(game.getPayoutFor(BET_10K, 2), 19_404 * 1e18);
+        assertEq(game.getPayoutFor(BET_2K, 1024), 1986969600000000000000000);
     }
 
     function testTwoStepOwnership() public {

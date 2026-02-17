@@ -17,6 +17,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * - Bet tiers: 2K / 10K / 50K / 100K CLAWD
  * - Multipliers: 2x to 1024x (powers of 2)
  * - 1% of every bet burned forever
+ * - 1% of every winning claim burned forever
  * - 2% house edge on winnings
  */
 contract TenTwentyFourX is ReentrancyGuard {
@@ -160,8 +161,14 @@ contract TenTwentyFourX is ReentrancyGuard {
         totalWins++;
         totalPaidOut += payout;
 
-        token.safeTransfer(player, payout);
-        emit BetWon(player, betIndex, secret, b.betAmount, b.multiplier, payout);
+        // Burn 1% of winnings on claim
+        uint256 claimBurn = (payout * BURN_PERCENT) / 100;
+        token.safeTransfer(BURN_ADDRESS, claimBurn);
+        totalBurned += claimBurn;
+
+        token.safeTransfer(player, payout - claimBurn);
+        emit TokensBurned(claimBurn);
+        emit BetWon(player, betIndex, secret, b.betAmount, b.multiplier, payout - claimBurn);
     }
 
     // ===== Owner withdrawal with 15-min delay =====
@@ -241,7 +248,9 @@ contract TenTwentyFourX is ReentrancyGuard {
     }
 
     function getPayoutFor(uint256 betAmount, uint256 multiplier) external pure returns (uint256) {
-        return (betAmount * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
+        uint256 grossPayout = (betAmount * multiplier * (100 - HOUSE_EDGE_PERCENT)) / 100;
+        uint256 claimBurn = (grossPayout * BURN_PERCENT) / 100;
+        return grossPayout - claimBurn;
     }
 
     function getValidBets() external view returns (uint256[4] memory) { return VALID_BETS; }
