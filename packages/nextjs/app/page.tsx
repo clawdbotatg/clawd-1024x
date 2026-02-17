@@ -196,26 +196,24 @@ const Home: NextPage = () => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (!isMobile) return;
     // Already inside a wallet's in-app browser — no need to deep link
-    if (window.innerWidth < 500 && window.ethereum) return;
+    if (window.ethereum) return;
 
-    const currentUrl = window.location.href;
-    const strippedUrl = currentUrl.replace(/^https?:\/\//, "");
     const connectorId = (connector?.id || "").toLowerCase();
     const connectorName = (connector?.name || "").toLowerCase();
 
-    // Map wallet connectors to their deep link schemes
+    // For WalletConnect-based connections (most mobile wallets), just bring the wallet to foreground
     if (connectorName.includes("rainbow") || connectorId.includes("rainbow")) {
-      window.location.href = `rainbow://dapp/${strippedUrl}`;
+      window.location.href = "rainbow://";
     } else if (connectorName.includes("coinbase") || connectorId.includes("coinbase")) {
-      window.location.href = `cbwallet://dapp/${strippedUrl}`;
+      window.location.href = "cbwallet://";
     } else if (connectorName.includes("trust") || connectorId.includes("trust")) {
-      window.location.href = `trust://open_url?coin_id=60&url=${encodeURIComponent(currentUrl)}`;
+      window.location.href = "trust://";
     } else if (connectorName.includes("phantom") || connectorId.includes("phantom")) {
-      window.location.href = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=${encodeURIComponent(currentUrl)}`;
+      window.location.href = "phantom://";
     } else if (connectorName.includes("metamask") || connectorId.includes("metamask")) {
-      window.location.href = `metamask://dapp/${strippedUrl}`;
+      window.location.href = "metamask://";
     }
-    // For WalletConnect and others, the SDK handles the redirect — don't force a deep link
+    // For WalletConnect generic and others, the SDK handles the redirect
   }, [connector]);
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
@@ -517,6 +515,7 @@ const Home: NextPage = () => {
     async (bet: PendingBet) => {
       if (!connectedAddress) return;
       setIsClaiming(bet.betIndex);
+      openWallet();
       try {
         await gameWrite({
           functionName: "reveal",
@@ -547,6 +546,7 @@ const Home: NextPage = () => {
     async (bets: PendingBet[]) => {
       if (!connectedAddress || bets.length === 0) return;
       setIsBatchClaiming(true);
+      openWallet();
       try {
         const indices = bets.map(b => BigInt(b.betIndex));
         const secrets = bets.map(b => b.secret as `0x${string}`);
