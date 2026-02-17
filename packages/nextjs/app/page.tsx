@@ -198,22 +198,46 @@ const Home: NextPage = () => {
     // Already inside a wallet's in-app browser — no need to deep link
     if (window.ethereum) return;
 
+    // Check connector id/name AND the RainbowKit wallet name stored in localStorage
     const connectorId = (connector?.id || "").toLowerCase();
     const connectorName = (connector?.name || "").toLowerCase();
+    const rkWallet = (localStorage.getItem("wagmi.recentConnectorId") || "").toLowerCase();
+    const allIds = `${connectorId} ${connectorName} ${rkWallet}`;
 
-    // For WalletConnect-based connections (most mobile wallets), just bring the wallet to foreground
-    if (connectorName.includes("rainbow") || connectorId.includes("rainbow")) {
-      window.location.href = "rainbow://";
-    } else if (connectorName.includes("coinbase") || connectorId.includes("coinbase")) {
-      window.location.href = "cbwallet://";
-    } else if (connectorName.includes("trust") || connectorId.includes("trust")) {
-      window.location.href = "trust://";
-    } else if (connectorName.includes("phantom") || connectorId.includes("phantom")) {
-      window.location.href = "phantom://";
-    } else if (connectorName.includes("metamask") || connectorId.includes("metamask")) {
-      window.location.href = "metamask://";
+    // Deep link map — just bring the wallet app to foreground to sign the pending tx
+    const walletSchemes: [string[], string][] = [
+      [["rainbow"], "rainbow://"],
+      [["metamask"], "metamask://"],
+      [["coinbase", "cbwallet"], "cbwallet://"],
+      [["trust"], "trust://"],
+      [["phantom"], "phantom://"],
+      [["zerion"], "zerion://"],
+      [["uniswap"], "uniswap://"],
+    ];
+
+    for (const [keywords, scheme] of walletSchemes) {
+      if (keywords.some(k => allIds.includes(k))) {
+        window.location.href = scheme;
+        return;
+      }
     }
-    // For WalletConnect generic and others, the SDK handles the redirect
+
+    // Fallback for WalletConnect: try to get wallet name from the WC session
+    if (connectorId.includes("walletconnect")) {
+      // WalletConnect stores session data — try to extract wallet name
+      try {
+        const wcKey = Object.keys(localStorage).find(k => k.startsWith("wc@2:client"));
+        if (wcKey) {
+          const wcData = localStorage.getItem(wcKey) || "";
+          for (const [keywords, scheme] of walletSchemes) {
+            if (keywords.some(k => wcData.toLowerCase().includes(k))) {
+              window.location.href = scheme;
+              return;
+            }
+          }
+        }
+      } catch {}
+    }
   }, [connector]);
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
