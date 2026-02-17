@@ -295,6 +295,60 @@ const Home: NextPage = () => {
     setPendingBets(loadBets(connectedAddress));
   }, [connectedAddress]);
 
+  // Verify "won" bets against on-chain claimed status (catches stale localStorage)
+  useEffect(() => {
+    if (!connectedAddress || !publicClient || !contractAddress) return;
+
+    const verifyWonBets = async () => {
+      const bets = loadBets(connectedAddress);
+      const wonBets = bets.filter(b => b.status === "won");
+      if (wonBets.length === 0) return;
+
+      let changed = false;
+      for (const bet of wonBets) {
+        try {
+          const result = await publicClient.readContract({
+            address: contractAddress,
+            abi: [
+              {
+                type: "function",
+                name: "getBet",
+                inputs: [
+                  { name: "player", type: "address" },
+                  { name: "betIndex", type: "uint256" },
+                ],
+                outputs: [
+                  { name: "dataHash", type: "bytes32" },
+                  { name: "commitBlock", type: "uint256" },
+                  { name: "betAmount", type: "uint256" },
+                  { name: "multiplier", type: "uint256" },
+                  { name: "claimed", type: "bool" },
+                ],
+                stateMutability: "view",
+              },
+            ],
+            functionName: "getBet",
+            args: [connectedAddress, BigInt(bet.betIndex)],
+          });
+          if (result[4]) {
+            // Already claimed on-chain
+            bet.status = "claimed";
+            changed = true;
+          }
+        } catch {
+          // Bet index doesn't exist or other error — skip
+        }
+      }
+
+      if (changed) {
+        saveBets(connectedAddress, bets);
+        setPendingBets([...bets]);
+      }
+    };
+
+    verifyWonBets();
+  }, [connectedAddress, publicClient, contractAddress]);
+
   // Check bet results when block advances
   useEffect(() => {
     if (!publicClient || !connectedAddress || currentBlock === 0) return;
@@ -430,6 +484,18 @@ const Home: NextPage = () => {
     setAwaitingWallet(false);
   }, [connectedAddress, gameWrite, publicClient, selectedBet, selectedMultiplier]);
 
+  const markBetClaimed = useCallback(
+    (bet: PendingBet) => {
+      if (!connectedAddress) return;
+      const bets = loadBets(connectedAddress);
+      const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
+      if (idx >= 0) bets[idx].status = "claimed";
+      saveBets(connectedAddress, bets);
+      setPendingBets([...bets]);
+    },
+    [connectedAddress],
+  );
+
   const handleClaim = useCallback(
     async (bet: PendingBet) => {
       if (!connectedAddress) return;
@@ -441,20 +507,21 @@ const Home: NextPage = () => {
         });
 
         const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
-
-        const bets = loadBets(connectedAddress);
-        const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
-        if (idx >= 0) bets[idx].status = "claimed";
-        saveBets(connectedAddress, bets);
-        setPendingBets([...bets]);
-
+        markBetClaimed(bet);
         notification.success(`🎉 Claimed ${formatClawd(payout)} CLAWD!`);
       } catch (e) {
-        notification.error(parseError(e));
+        const msg = (e as Error)?.message || String(e);
+        if (msg.includes("Already claimed")) {
+          // Bet was already claimed (e.g. page reload race) — just update UI
+          markBetClaimed(bet);
+          notification.info("Already claimed — updated status.");
+        } else {
+          notification.error(parseError(e));
+        }
       }
       setIsClaiming(null);
     },
-    [connectedAddress, gameWrite],
+    [connectedAddress, gameWrite, markBetClaimed],
   );
 
   const clearFinished = useCallback(() => {
