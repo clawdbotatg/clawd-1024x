@@ -158,7 +158,7 @@ function parseError(e: unknown): string {
 }
 
 const Home: NextPage = () => {
-  const { address: connectedAddress, chain } = useAccount();
+  const { address: connectedAddress, chain, connector } = useAccount();
   const { switchChain } = useSwitchChain();
   const { targetNetwork } = useTargetNetwork();
   const publicClient = usePublicClient({ chainId: targetNetwork.id });
@@ -189,7 +189,53 @@ const Home: NextPage = () => {
     setDisclaimerAccepted(true);
   }, []);
 
-  // WalletConnect push notifications handle wallet switching on mobile — no manual deep linking needed
+  // Deep link to wallet app AFTER tx request is sent (not before — tx must fire first)
+  const openWallet = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (!isMobile || window.ethereum) return;
+
+    // Check all possible sources for wallet name
+    const allIds = [connector?.id, connector?.name, localStorage.getItem("wagmi.recentConnectorId")]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    // Also check WalletConnect session data for wallet name
+    let wcWallet = "";
+    try {
+      const wcKey = Object.keys(localStorage).find(k => k.startsWith("wc@2:client"));
+      if (wcKey) wcWallet = (localStorage.getItem(wcKey) || "").toLowerCase();
+    } catch {}
+    const search = `${allIds} ${wcWallet}`;
+
+    const schemes: [string[], string][] = [
+      [["rainbow"], "rainbow://"],
+      [["metamask"], "metamask://"],
+      [["coinbase", "cbwallet"], "cbwallet://"],
+      [["trust"], "trust://"],
+      [["phantom"], "phantom://"],
+      [["zerion"], "zerion://"],
+      [["uniswap"], "uniswap://"],
+    ];
+
+    for (const [keywords, scheme] of schemes) {
+      if (keywords.some(k => search.includes(k))) {
+        window.location.href = scheme;
+        return;
+      }
+    }
+  }, [connector]);
+
+  // Helper: fire a write call, then deep link to wallet after a brief delay
+  const writeAndOpen = useCallback(
+    <T,>(writeFn: () => Promise<T>): Promise<T> => {
+      const promise = writeFn(); // Fire TX request immediately
+      setTimeout(openWallet, 300); // Then switch to wallet app
+      return promise;
+    },
+    [openWallet],
+  );
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
   const [clawdPriceUsd, setClawdPriceUsd] = useState<number>(0);
@@ -409,7 +455,9 @@ const Home: NextPage = () => {
     setIsApproving(true);
     setAwaitingWallet(true);
     try {
-      await approveWrite({ functionName: "approve", args: [contractAddress, selectedBet.value * 10n] });
+      await writeAndOpen(() =>
+        approveWrite({ functionName: "approve", args: [contractAddress, selectedBet.value * 10n] }),
+      );
       setAwaitingWallet(false);
       await refetchAllowance();
       notification.success("CLAWD approved!");
@@ -430,10 +478,12 @@ const Home: NextPage = () => {
       const salt = randomBytes32();
       const dataHash = keccak256(encodePacked(["bytes32", "bytes32"], [secret, salt]));
 
-      const txHash = await gameWrite({
-        functionName: "click",
-        args: [dataHash, selectedBet.value, BigInt(selectedMultiplier)],
-      });
+      const txHash = await writeAndOpen(() =>
+        gameWrite({
+          functionName: "click",
+          args: [dataHash, selectedBet.value, BigInt(selectedMultiplier)],
+        }),
+      );
 
       setAwaitingWallet(false);
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
@@ -489,10 +539,12 @@ const Home: NextPage = () => {
       if (!connectedAddress) return;
       setIsClaiming(bet.betIndex);
       try {
-        await gameWrite({
-          functionName: "reveal",
-          args: [BigInt(bet.betIndex), bet.secret as `0x${string}`, bet.salt as `0x${string}`],
-        });
+        await writeAndOpen(() =>
+          gameWrite({
+            functionName: "reveal",
+            args: [BigInt(bet.betIndex), bet.secret as `0x${string}`, bet.salt as `0x${string}`],
+          }),
+        );
 
         const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
         markBetClaimed(bet);
@@ -523,10 +575,12 @@ const Home: NextPage = () => {
         const secrets = bets.map(b => b.secret as `0x${string}`);
         const salts = bets.map(b => b.salt as `0x${string}`);
 
-        await gameWrite({
-          functionName: "batchReveal",
-          args: [indices, secrets, salts],
-        });
+        await writeAndOpen(() =>
+          gameWrite({
+            functionName: "batchReveal",
+            args: [indices, secrets, salts],
+          }),
+        );
 
         let totalPayout = 0n;
         const allBets = loadBets(connectedAddress);
