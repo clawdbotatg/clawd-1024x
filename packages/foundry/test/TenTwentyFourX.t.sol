@@ -254,4 +254,34 @@ contract TenTwentyFourXTest is Test {
         game.requestWithdraw(gameOwner);
         vm.stopPrank();
     }
+
+    function testWithdrawTimeRemaining() public {
+        // No request → 0
+        assertEq(game.withdrawTimeRemaining(), 0);
+
+        vm.prank(gameOwner);
+        game.requestWithdraw(gameOwner);
+
+        // Right after request → 15 minutes
+        assertEq(game.withdrawTimeRemaining(), 15 minutes);
+
+        // After 10 minutes → 5 minutes left
+        vm.warp(block.timestamp + 10 minutes);
+        assertEq(game.withdrawTimeRemaining(), 5 minutes);
+
+        // After 15 minutes → 0 (ready)
+        vm.warp(block.timestamp + 5 minutes);
+        assertEq(game.withdrawTimeRemaining(), 0);
+    }
+
+    function testRenounceOwnership() public {
+        vm.prank(gameOwner);
+        game.renounceOwnership();
+        assertEq(game.owner(), address(0));
+
+        // Can't do owner stuff anymore
+        vm.prank(gameOwner);
+        vm.expectRevert("Not owner");
+        game.requestWithdraw(gameOwner);
+    }
 }

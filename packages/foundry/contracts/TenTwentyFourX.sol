@@ -221,7 +221,22 @@ contract TenTwentyFourX is ReentrancyGuard {
         pendingOwner = address(0);
     }
 
+    /// @notice Permanently renounce ownership — contract becomes immutable
+    function renounceOwnership() external onlyOwner {
+        emit OwnershipAccepted(owner, address(0));
+        owner = address(0);
+        pendingOwner = address(0);
+    }
+
     // ===== View functions =====
+
+    /// @notice Returns seconds remaining until withdrawal can be executed (0 if ready or no request)
+    function withdrawTimeRemaining() external view returns (uint256) {
+        if (withdrawRequestedAt == 0) return 0;
+        uint256 readyAt = withdrawRequestedAt + WITHDRAW_DELAY;
+        if (block.timestamp >= readyAt) return 0;
+        return readyAt - block.timestamp;
+    }
 
     function houseBalance() external view returns (uint256) {
         return token.balanceOf(address(this));
