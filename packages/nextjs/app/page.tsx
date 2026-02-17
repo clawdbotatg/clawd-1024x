@@ -482,6 +482,7 @@ const Home: NextPage = () => {
 
   // Active bets (won, waiting)
   const activeBets = pendingBets.filter(b => b.status === "won" || b.status === "waiting");
+  const isRolling = activeBets.some(b => b.status === "waiting");
   const claimableBets = pendingBets.filter(b => b.status === "won");
   const recentFinished = pendingBets
     .filter(b => b.status === "lost" || b.status === "expired" || b.status === "claimed")
@@ -634,10 +635,18 @@ const Home: NextPage = () => {
                 )}
               </button>
             ) : (
-              <button className="btn btn-primary btn-lg w-full text-xl" disabled={isClicking} onClick={handleClick}>
+              <button
+                className="btn btn-primary btn-lg w-full text-xl"
+                disabled={isClicking || isRolling}
+                onClick={handleClick}
+              >
                 {isClicking ? (
                   <>
                     <span className="loading loading-spinner"></span>Rolling...
+                  </>
+                ) : isRolling ? (
+                  <>
+                    <span className="loading loading-spinner"></span>Waiting for result...
                   </>
                 ) : (
                   `ROLL ${selectedBet.label} @ ${selectedMultiplier}x`
