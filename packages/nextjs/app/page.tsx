@@ -541,6 +541,54 @@ const Home: NextPage = () => {
     [connectedAddress, gameWrite, markBetClaimed],
   );
 
+  const [isBatchClaiming, setIsBatchClaiming] = useState(false);
+
+  const handleBatchClaim = useCallback(
+    async (bets: PendingBet[]) => {
+      if (!connectedAddress || bets.length === 0) return;
+      setIsBatchClaiming(true);
+      try {
+        const indices = bets.map(b => BigInt(b.betIndex));
+        const secrets = bets.map(b => b.secret as `0x${string}`);
+        const salts = bets.map(b => b.salt as `0x${string}`);
+
+        await gameWrite({
+          functionName: "batchReveal",
+          args: [indices, secrets, salts],
+        });
+
+        let totalPayout = 0n;
+        const allBets = loadBets(connectedAddress);
+        for (const bet of bets) {
+          const idx = allBets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
+          if (idx >= 0) allBets[idx].status = "claimed";
+          totalPayout += (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+        }
+        saveBets(connectedAddress, allBets);
+        setPendingBets([...allBets]);
+
+        notification.success(`🎉 Claimed ${bets.length} wins — ${formatClawd(totalPayout)} CLAWD!`);
+      } catch (e) {
+        const msg = (e as Error)?.message || String(e);
+        if (msg.includes("Already claimed")) {
+          // Some/all already claimed — mark them all
+          const allBets = loadBets(connectedAddress);
+          for (const bet of bets) {
+            const idx = allBets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
+            if (idx >= 0) allBets[idx].status = "claimed";
+          }
+          saveBets(connectedAddress, allBets);
+          setPendingBets([...allBets]);
+          notification.info("Some bets already claimed — updated status.");
+        } else {
+          notification.error(parseError(e));
+        }
+      }
+      setIsBatchClaiming(false);
+    },
+    [connectedAddress, gameWrite],
+  );
+
   const clearFinished = useCallback(() => {
     if (!connectedAddress) return;
     const bets = loadBets(connectedAddress).filter(b => b.status === "waiting" || b.status === "won");
@@ -781,10 +829,25 @@ const Home: NextPage = () => {
       {activeBets.length > 0 && (
         <div className="card bg-base-100 shadow-xl w-full max-w-md">
           <div className="card-body">
-            <h2 className="card-title text-lg">
-              🎲 Your Active Bets
-              {claimableBets.length > 0 && <span className="badge badge-success">{claimableBets.length} won!</span>}
-            </h2>
+            <div className="flex justify-between items-center">
+              <h2 className="card-title text-lg">
+                🎲 Your Active Bets
+                {claimableBets.length > 0 && <span className="badge badge-success">{claimableBets.length} won!</span>}
+              </h2>
+              {claimableBets.length > 1 && (
+                <button
+                  className="btn btn-success btn-sm"
+                  disabled={isBatchClaiming}
+                  onClick={() => handleBatchClaim(claimableBets)}
+                >
+                  {isBatchClaiming ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : (
+                    `🏆 Claim All (${claimableBets.length})`
+                  )}
+                </button>
+              )}
+            </div>
             <div className="space-y-3">
               {activeBets.map(bet => {
                 const blocksLeft = Math.max(0, bet.commitBlock + 256 - currentBlock);
