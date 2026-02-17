@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * to cover any single winning bet. Disclaimer covers simultaneous wins.
  *
  * Economics:
- * - Bet tiers: 10K / 50K / 100K / 500K CLAWD
+ * - Bet tiers: 2K / 10K / 50K / 100K CLAWD
  * - Multipliers: 2x to 1024x (powers of 2)
  * - 1% of every bet burned forever
  * - 2% house edge on winnings
@@ -34,10 +34,10 @@ contract TenTwentyFourX is ReentrancyGuard {
     uint256 public constant MAX_PAYOUT_DIVISOR = 5; // Max payout = house balance / 5
 
     uint256[4] public VALID_BETS = [
+        2_000 * 1e18,
         10_000 * 1e18,
         50_000 * 1e18,
-        100_000 * 1e18,
-        500_000 * 1e18
+        100_000 * 1e18
     ];
 
     uint256[10] public VALID_MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
