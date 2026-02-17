@@ -227,11 +227,13 @@ const Home: NextPage = () => {
     }
   }, [connector]);
 
-  // Helper: fire a write call, then deep link to wallet after a brief delay
+  // Helper: fire a write call, then deep link to wallet once the request has been relayed
   const writeAndOpen = useCallback(
     <T,>(writeFn: () => Promise<T>): Promise<T> => {
-      const promise = writeFn(); // Fire TX request immediately
-      setTimeout(openWallet, 300); // Then switch to wallet app
+      const promise = writeFn(); // Fire TX request — this does gas estimation + WC relay
+      // WalletConnect needs time to estimate gas, encode, and relay to the wallet.
+      // Too fast = wallet hasn't received the request yet. 2s is safe for WC relay.
+      setTimeout(openWallet, 2000);
       return promise;
     },
     [openWallet],
