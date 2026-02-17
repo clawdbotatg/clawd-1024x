@@ -102,6 +102,22 @@ interface PendingBet {
   betAmount: string;
   multiplier: number;
   status: "waiting" | "won" | "lost" | "expired" | "claimed";
+  timestamp?: number; // ms since epoch
+}
+
+// Live time-ago component that re-renders every 5s
+function TimeAgo({ timestamp }: { timestamp?: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 5000);
+    return () => clearInterval(interval);
+  }, []);
+  if (!timestamp) return null;
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 5) return <span className="opacity-40">just now</span>;
+  if (seconds < 60) return <span className="opacity-40">{seconds}s ago</span>;
+  if (seconds < 3600) return <span className="opacity-40">{Math.floor(seconds / 60)}m ago</span>;
+  return <span className="opacity-40">{Math.floor(seconds / 3600)}h ago</span>;
 }
 
 function loadBets(address: string): PendingBet[] {
@@ -469,6 +485,7 @@ const Home: NextPage = () => {
         betAmount: selectedBet.value.toString(),
         multiplier: selectedMultiplier,
         status: "waiting",
+        timestamp: Date.now(),
       };
 
       const bets = loadBets(connectedAddress);
@@ -552,7 +569,7 @@ const Home: NextPage = () => {
   const isRolling = activeBets.some(b => b.status === "waiting");
   const claimableBets = pendingBets.filter(b => b.status === "won");
   const recentFinished = pendingBets
-    .filter(b => b.status === "lost" || b.status === "expired" || b.status === "claimed")
+    .filter(b => b.status === "lost" || b.status === "expired" || b.status === "claimed" || b.status === "won")
     .slice(-10);
 
   if (!disclaimerAccepted) {
@@ -835,21 +852,31 @@ const Home: NextPage = () => {
             <div className="space-y-1">
               {recentFinished.reverse().map((bet, i) => {
                 const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
+                const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
                 return (
-                  <div key={i} className="flex justify-between text-sm p-1">
-                    <span>
+                  <div key={i} className="flex justify-between items-center text-sm p-1">
+                    <span className="flex items-center gap-2">
                       {betLabel} @ {bet.multiplier}x
+                      <TimeAgo timestamp={bet.timestamp} />
                     </span>
                     <span
                       className={
-                        bet.status === "claimed"
-                          ? "text-success"
-                          : bet.status === "expired"
-                            ? "text-warning"
-                            : "opacity-50"
+                        bet.status === "won"
+                          ? "text-success font-bold"
+                          : bet.status === "claimed"
+                            ? "text-success"
+                            : bet.status === "expired"
+                              ? "text-warning"
+                              : "opacity-50"
                       }
                     >
-                      {bet.status === "claimed" ? "✅ Claimed" : bet.status === "expired" ? "⏰ Expired" : "❌ Lost"}
+                      {bet.status === "won"
+                        ? `🎉 Won ${formatClawd(payout)}`
+                        : bet.status === "claimed"
+                          ? `✅ Claimed ${formatClawd(payout)}`
+                          : bet.status === "expired"
+                            ? "⏰ Expired"
+                            : "❌ Lost"}
                     </span>
                   </div>
                 );
