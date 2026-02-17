@@ -17,9 +17,9 @@ contract TenTwentyFourXTest is Test {
     address public player = address(0x1);
     address public gameOwner = address(0x99);
 
+    uint256 constant BET_2K = 2_000 * 1e18;
     uint256 constant BET_10K = 10_000 * 1e18;
     uint256 constant BET_50K = 50_000 * 1e18;
-    uint256 constant BET_500K = 500_000 * 1e18;
 
     function setUp() public {
         token = new MockCLAWD();
@@ -132,12 +132,12 @@ contract TenTwentyFourXTest is Test {
         address burnAddr = 0x000000000000000000000000000000000000dEaD;
         uint256 burnBefore = token.balanceOf(burnAddr);
         vm.startPrank(player);
-        token.approve(address(game), BET_500K);
+        token.approve(address(game), BET_50K);
         bytes32 hash = game.computeHash(bytes32(uint256(42)), bytes32(uint256(1)));
-        game.click(hash, BET_500K, 2);
+        game.click(hash, BET_50K, 2);
         vm.stopPrank();
-        assertEq(token.balanceOf(burnAddr) - burnBefore, 5_000 * 1e18);
-        assertEq(game.totalBurned(), 5_000 * 1e18);
+        assertEq(token.balanceOf(burnAddr) - burnBefore, 500 * 1e18);
+        assertEq(game.totalBurned(), 500 * 1e18);
     }
 
     function testInvalidBet() public {
@@ -228,7 +228,7 @@ contract TenTwentyFourXTest is Test {
 
     function testPayoutCalculation() public view {
         assertEq(game.getPayoutFor(BET_10K, 2), 19_600 * 1e18);
-        assertEq(game.getPayoutFor(BET_500K, 1024), 501_760_000 * 1e18);
+        assertEq(game.getPayoutFor(BET_2K, 1024), 2_007_040 * 1e18);
     }
 
     function testTwoStepOwnership() public {

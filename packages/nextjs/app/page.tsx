@@ -84,10 +84,10 @@ function RollingAnimation({ multiplier }: { multiplier: number }) {
 }
 
 const BET_TIERS = [
+  { value: parseEther("2000"), label: "2K", display: "2,000" },
   { value: parseEther("10000"), label: "10K", display: "10,000" },
   { value: parseEther("50000"), label: "50K", display: "50,000" },
   { value: parseEther("100000"), label: "100K", display: "100,000" },
-  { value: parseEther("500000"), label: "500K", display: "500,000" },
 ];
 
 const MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
