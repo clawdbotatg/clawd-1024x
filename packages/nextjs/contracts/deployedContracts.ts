@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   8453: {
     TenTwentyFourX: {
-      address: "0x6b003f883c608bdad938cd6dc3730b17ac46e196",
+      address: "0xaA7466fa805e59f06c83BEfB2B4e256A9B246b04",
       abi: [
         {
           type: "constructor",
@@ -355,8 +355,8 @@ const deployedContracts = {
           outputs: [
             {
               name: "",
-              type: "uint256[4]",
-              internalType: "uint256[4]",
+              type: "uint256[6]",
+              internalType: "uint256[6]",
             },
           ],
           stateMutability: "view",
@@ -886,8 +886,6 @@ const deployedContracts = {
           ],
         },
       ],
-      inheritedFunctions: {},
-      deployedOnBlock: 42251897,
     },
   },
 } as const;

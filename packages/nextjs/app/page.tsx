@@ -88,6 +88,8 @@ const BET_TIERS = [
   { value: parseEther("10000"), label: "10K", display: "10,000" },
   { value: parseEther("50000"), label: "50K", display: "50,000" },
   { value: parseEther("100000"), label: "100K", display: "100,000" },
+  { value: parseEther("500000"), label: "500K", display: "500,000" },
+  { value: parseEther("1000000"), label: "1M", display: "1,000,000" },
 ];
 
 const MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
@@ -692,7 +694,7 @@ const Home: NextPage = () => {
                 )}
               </span>
             </label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {BET_TIERS.map(tier => (
                 <button
                   key={tier.label}

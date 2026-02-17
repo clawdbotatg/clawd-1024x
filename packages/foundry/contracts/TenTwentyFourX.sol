@@ -34,11 +34,13 @@ contract TenTwentyFourX is ReentrancyGuard {
     uint256 public constant WITHDRAW_DELAY = 15 minutes;
     uint256 public constant MAX_PAYOUT_DIVISOR = 5; // Max payout = house balance / 5
 
-    uint256[4] public VALID_BETS = [
+    uint256[6] public VALID_BETS = [
         2_000 * 1e18,
         10_000 * 1e18,
         50_000 * 1e18,
-        100_000 * 1e18
+        100_000 * 1e18,
+        500_000 * 1e18,
+        1_000_000 * 1e18
     ];
 
     uint256[10] public VALID_MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
@@ -268,7 +270,7 @@ contract TenTwentyFourX is ReentrancyGuard {
         return grossPayout - claimBurn;
     }
 
-    function getValidBets() external view returns (uint256[4] memory) { return VALID_BETS; }
+    function getValidBets() external view returns (uint256[6] memory) { return VALID_BETS; }
     function getValidMultipliers() external view returns (uint256[10] memory) { return VALID_MULTIPLIERS; }
 
     function _isValidBet(uint256 betAmount) internal view returns (bool) {
