@@ -189,56 +189,7 @@ const Home: NextPage = () => {
     setDisclaimerAccepted(true);
   }, []);
 
-  // Try to open the connected mobile wallet app
-  const { connector } = useAccount();
-  const openWallet = useCallback(() => {
-    if (typeof window === "undefined") return;
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (!isMobile) return;
-    // Already inside a wallet's in-app browser — no need to deep link
-    if (window.ethereum) return;
-
-    // Check connector id/name AND the RainbowKit wallet name stored in localStorage
-    const connectorId = (connector?.id || "").toLowerCase();
-    const connectorName = (connector?.name || "").toLowerCase();
-    const rkWallet = (localStorage.getItem("wagmi.recentConnectorId") || "").toLowerCase();
-    const allIds = `${connectorId} ${connectorName} ${rkWallet}`;
-
-    // Deep link map — just bring the wallet app to foreground to sign the pending tx
-    const walletSchemes: [string[], string][] = [
-      [["rainbow"], "rainbow://"],
-      [["metamask"], "metamask://"],
-      [["coinbase", "cbwallet"], "cbwallet://"],
-      [["trust"], "trust://"],
-      [["phantom"], "phantom://"],
-      [["zerion"], "zerion://"],
-      [["uniswap"], "uniswap://"],
-    ];
-
-    for (const [keywords, scheme] of walletSchemes) {
-      if (keywords.some(k => allIds.includes(k))) {
-        window.location.href = scheme;
-        return;
-      }
-    }
-
-    // Fallback for WalletConnect: try to get wallet name from the WC session
-    if (connectorId.includes("walletconnect")) {
-      // WalletConnect stores session data — try to extract wallet name
-      try {
-        const wcKey = Object.keys(localStorage).find(k => k.startsWith("wc@2:client"));
-        if (wcKey) {
-          const wcData = localStorage.getItem(wcKey) || "";
-          for (const [keywords, scheme] of walletSchemes) {
-            if (keywords.some(k => wcData.toLowerCase().includes(k))) {
-              window.location.href = scheme;
-              return;
-            }
-          }
-        }
-      } catch {}
-    }
-  }, [connector]);
+  // WalletConnect push notifications handle wallet switching on mobile — no manual deep linking needed
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
   const [clawdPriceUsd, setClawdPriceUsd] = useState<number>(0);
@@ -457,7 +408,6 @@ const Home: NextPage = () => {
     if (!connectedAddress) return;
     setIsApproving(true);
     setAwaitingWallet(true);
-    openWallet();
     try {
       await approveWrite({ functionName: "approve", args: [contractAddress, selectedBet.value * 10n] });
       setAwaitingWallet(false);
@@ -475,7 +425,6 @@ const Home: NextPage = () => {
     if (!connectedAddress || !publicClient) return;
     setIsClicking(true);
     setAwaitingWallet(true);
-    openWallet();
     try {
       const secret = randomBytes32();
       const salt = randomBytes32();
@@ -539,7 +488,6 @@ const Home: NextPage = () => {
     async (bet: PendingBet) => {
       if (!connectedAddress) return;
       setIsClaiming(bet.betIndex);
-      openWallet();
       try {
         await gameWrite({
           functionName: "reveal",
@@ -570,7 +518,6 @@ const Home: NextPage = () => {
     async (bets: PendingBet[]) => {
       if (!connectedAddress || bets.length === 0) return;
       setIsBatchClaiming(true);
-      openWallet();
       try {
         const indices = bets.map(b => BigInt(b.betIndex));
         const secrets = bets.map(b => b.secret as `0x${string}`);
