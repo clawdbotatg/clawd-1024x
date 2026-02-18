@@ -17,7 +17,6 @@ import { notification } from "~~/utils/scaffold-eth";
 // 🦞🎲💰 Win confetti!
 function fireWinConfetti() {
   const lobsterEmojis = ["🦞", "🎲", "💰", "🎉", "💎", "🔥"];
-  // Burst from both sides
   const defaults = { startVelocity: 30, spread: 360, ticks: 80, zIndex: 9999 };
 
   function fire(particleRatio: number, opts: confetti.Options) {
@@ -29,7 +28,6 @@ function fireWinConfetti() {
   fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, origin: { x: 0.8, y: 0.6 } });
   fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2, origin: { x: 0.5, y: 0.3 } });
 
-  // Emoji confetti — lobsters, dice, money
   const shapeDefaults = { startVelocity: 20, spread: 360, ticks: 90, zIndex: 10000, scalar: 2, gravity: 0.6 };
   lobsterEmojis.forEach((emoji, i) => {
     setTimeout(() => {
@@ -43,7 +41,6 @@ function fireWinConfetti() {
     }, i * 150);
   });
 
-  // Second wave
   setTimeout(() => {
     fire(0.3, { spread: 100, startVelocity: 45, origin: { x: 0.3, y: 0.7 } });
     fire(0.3, { spread: 100, startVelocity: 45, origin: { x: 0.7, y: 0.7 } });
@@ -51,7 +48,7 @@ function fireWinConfetti() {
 }
 
 // Rolling animation component
-function RollingAnimation({ multiplier }: { multiplier: number }) {
+function RollingAnimation({ multiplier, numRolls }: { multiplier: number; numRolls: number }) {
   const [digits, setDigits] = useState<string[]>(["0", "0", "0", "0", "0", "0"]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -78,21 +75,31 @@ function RollingAnimation({ multiplier }: { multiplier: number }) {
           </span>
         ))}
       </div>
-      <div className="text-lg font-bold animate-bounce">Rolling for {multiplier}x...</div>
+      <div className="text-lg font-bold animate-bounce">
+        Rolling {numRolls > 1 ? `${numRolls}x ` : ""}for {multiplier}x...
+      </div>
     </div>
   );
 }
 
 const BET_TIERS = [
+  { value: parseEther("2000"), label: "2K", display: "2,000" },
   { value: parseEther("10000"), label: "10K", display: "10,000" },
   { value: parseEther("50000"), label: "50K", display: "50,000" },
   { value: parseEther("100000"), label: "100K", display: "100,000" },
   { value: parseEther("500000"), label: "500K", display: "500,000" },
+  { value: parseEther("1000000"), label: "1M", display: "1,000,000" },
 ];
 
 const MULTIPLIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
+const ROLL_OPTIONS = [1, 2, 3, 5, 10, 15, 20];
 
 const STORAGE_KEY = "1024x-bets";
+
+interface RollResult {
+  index: number;
+  won: boolean;
+}
 
 interface PendingBet {
   betIndex: number;
@@ -101,7 +108,26 @@ interface PendingBet {
   commitBlock: number;
   betAmount: string;
   multiplier: number;
-  status: "waiting" | "won" | "lost" | "expired" | "claimed";
+  numRolls: number;
+  status: "waiting" | "resolved" | "expired" | "claimed";
+  wins: number;
+  rollResults: RollResult[];
+  timestamp?: number;
+}
+
+// Live time-ago component
+function TimeAgo({ timestamp }: { timestamp?: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 5000);
+    return () => clearInterval(interval);
+  }, []);
+  if (!timestamp) return null;
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 5) return <span className="opacity-40">just now</span>;
+  if (seconds < 60) return <span className="opacity-40">{seconds}s ago</span>;
+  if (seconds < 3600) return <span className="opacity-40">{Math.floor(seconds / 60)}m ago</span>;
+  return <span className="opacity-40">{Math.floor(seconds / 3600)}h ago</span>;
 }
 
 function loadBets(address: string): PendingBet[] {
@@ -135,14 +161,14 @@ function parseError(e: unknown): string {
     return "Payout exceeds 1/5 of house. Try lower odds or smaller bet.";
   if (msg.includes("Game paused")) return "Game is paused — withdrawal in progress.";
   if (msg.includes("Bet expired")) return "Bet expired (>256 blocks)";
-  if (msg.includes("Not a winner")) return "Not a winning reveal";
+  if (msg.includes("No winning rolls")) return "No winning rolls";
   if (msg.includes("insufficient allowance") || msg.includes("ERC20InsufficientAllowance"))
     return "Need to approve CLAWD first";
   return "Transaction failed";
 }
 
 const Home: NextPage = () => {
-  const { address: connectedAddress, chain } = useAccount();
+  const { address: connectedAddress, chain, connector } = useAccount();
   const { switchChain } = useSwitchChain();
   const { targetNetwork } = useTargetNetwork();
   const publicClient = usePublicClient({ chainId: targetNetwork.id });
@@ -150,16 +176,20 @@ const Home: NextPage = () => {
 
   const [selectedBet, setSelectedBet] = useState(BET_TIERS[0]);
   const [selectedMultiplier, setSelectedMultiplier] = useState(2);
+  const [selectedRolls, setSelectedRolls] = useState(1);
   const [pendingBets, setPendingBets] = useState<PendingBet[]>([]);
   const [isApproving, setIsApproving] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [awaitingWallet, setAwaitingWallet] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
-  const [lastResult, setLastResult] = useState<{ type: "won" | "lost"; multiplier: number; betLabel: string } | null>(
-    null,
-  );
+  const [lastResult, setLastResult] = useState<{
+    type: "won" | "lost";
+    multiplier: number;
+    betLabel: string;
+    wins: number;
+    numRolls: number;
+  } | null>(null);
 
-  // Check disclaimer acceptance
   useEffect(() => {
     try {
       if (localStorage.getItem("1024x-disclaimer") === "accepted") setDisclaimerAccepted(true);
@@ -173,28 +203,54 @@ const Home: NextPage = () => {
     setDisclaimerAccepted(true);
   }, []);
 
-  // Try to open mobile wallet app
   const openWallet = useCallback(() => {
-    // Only on mobile — detect via user agent
     if (typeof window === "undefined") return;
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (!isMobile) return;
-    // Don't open if already inside wallet browser
-    if (
-      window.ethereum &&
-      (window.ethereum as unknown as Record<string, boolean>).isMetaMask &&
-      window.innerWidth < 500
-    )
-      return;
-    // Try MetaMask deep link
-    const currentUrl = window.location.href;
-    window.location.href = `metamask://dapp/${currentUrl.replace(/^https?:\/\//, "")}`;
-  }, []);
+    if (!isMobile || window.ethereum) return;
+
+    const allIds = [connector?.id, connector?.name, localStorage.getItem("wagmi.recentConnectorId")]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    let wcWallet = "";
+    try {
+      const wcKey = Object.keys(localStorage).find(k => k.startsWith("wc@2:client"));
+      if (wcKey) wcWallet = (localStorage.getItem(wcKey) || "").toLowerCase();
+    } catch {}
+    const search = `${allIds} ${wcWallet}`;
+
+    const schemes: [string[], string][] = [
+      [["rainbow"], "rainbow://"],
+      [["metamask"], "metamask://"],
+      [["coinbase", "cbwallet"], "cbwallet://"],
+      [["trust"], "trust://"],
+      [["phantom"], "phantom://"],
+      [["zerion"], "zerion://"],
+      [["uniswap"], "uniswap://"],
+    ];
+
+    for (const [keywords, scheme] of schemes) {
+      if (keywords.some(k => search.includes(k))) {
+        window.location.href = scheme;
+        return;
+      }
+    }
+  }, [connector]);
+
+  const writeAndOpen = useCallback(
+    <T,>(writeFn: () => Promise<T>): Promise<T> => {
+      const promise = writeFn();
+      setTimeout(openWallet, 2000);
+      return promise;
+    },
+    [openWallet],
+  );
+
   const [isClaiming, setIsClaiming] = useState<number | null>(null);
   const [currentBlock, setCurrentBlock] = useState<number>(0);
   const [clawdPriceUsd, setClawdPriceUsd] = useState<number>(0);
 
-  // Fetch CLAWD price from DexScreener
   useEffect(() => {
     const fetchPrice = async () => {
       try {
@@ -230,7 +286,8 @@ const Home: NextPage = () => {
     query: { enabled: !!connectedAddress && !!contractAddress },
   });
 
-  const needsApproval = !allowance || allowance < selectedBet.value;
+  const totalBetAmount = selectedBet.value * BigInt(selectedRolls);
+  const needsApproval = !allowance || allowance < totalBetAmount;
 
   const { data: houseBalance } = useScaffoldReadContract({
     contractName: "TenTwentyFourX",
@@ -250,21 +307,21 @@ const Home: NextPage = () => {
 
   const { data: winEvents } = useScaffoldEventHistory({
     contractName: "TenTwentyFourX",
-    eventName: "BetWon",
+    eventName: "BetResolved",
     fromBlock: BigInt(Math.max(0, currentBlock - 50000)),
     watch: true,
   });
 
-  const currentPayout = (selectedBet.value * BigInt(selectedMultiplier) * 98n) / 100n;
-  const currentBurn = selectedBet.value / 100n;
+  const singlePayout = (selectedBet.value * BigInt(selectedMultiplier) * 98n) / 100n;
+  const currentTotalPayout = singlePayout * BigInt(selectedRolls);
+  const currentBurn = (selectedBet.value * BigInt(selectedRolls)) / 100n;
 
-  const canAfford = (betValue: bigint, mult: number): boolean => {
+  const canAfford = (betValue: bigint, mult: number, rolls: number): boolean => {
     if (!houseBalance) return false;
-    const payout = (betValue * BigInt(mult) * 98n) / 100n;
-    return payout <= houseBalance / 5n;
+    const maxPayout = (betValue * BigInt(mult) * 98n) / 100n * BigInt(rolls);
+    return maxPayout <= houseBalance / 5n;
   };
 
-  // Poll current block
   useEffect(() => {
     if (!publicClient) return;
     const poll = async () => {
@@ -278,11 +335,62 @@ const Home: NextPage = () => {
     return () => clearInterval(interval);
   }, [publicClient]);
 
-  // Load bets from localStorage
   useEffect(() => {
     if (!connectedAddress) return;
     setPendingBets(loadBets(connectedAddress));
   }, [connectedAddress]);
+
+  // Verify resolved bets against on-chain claimed status
+  useEffect(() => {
+    if (!connectedAddress || !publicClient || !contractAddress) return;
+
+    const verifyBets = async () => {
+      const bets = loadBets(connectedAddress);
+      const resolvedBets = bets.filter(b => b.status === "resolved" && b.wins > 0);
+      if (resolvedBets.length === 0) return;
+
+      let changed = false;
+      for (const bet of resolvedBets) {
+        try {
+          const result = await publicClient.readContract({
+            address: contractAddress,
+            abi: [
+              {
+                type: "function",
+                name: "getBet",
+                inputs: [
+                  { name: "player", type: "address" },
+                  { name: "betIndex", type: "uint256" },
+                ],
+                outputs: [
+                  { name: "dataHash", type: "bytes32" },
+                  { name: "commitBlock", type: "uint256" },
+                  { name: "betAmount", type: "uint256" },
+                  { name: "multiplier", type: "uint256" },
+                  { name: "numRolls", type: "uint8" },
+                  { name: "claimed", type: "bool" },
+                ],
+                stateMutability: "view",
+              },
+            ],
+            functionName: "getBet",
+            args: [connectedAddress, BigInt(bet.betIndex)],
+          });
+          if (result[5]) {
+            bet.status = "claimed";
+            changed = true;
+          }
+        } catch {}
+      }
+
+      if (changed) {
+        saveBets(connectedAddress, bets);
+        setPendingBets([...bets]);
+      }
+    };
+
+    verifyBets();
+  }, [connectedAddress, publicClient, contractAddress]);
 
   // Check bet results when block advances
   useEffect(() => {
@@ -294,11 +402,12 @@ const Home: NextPage = () => {
 
       for (const bet of bets) {
         if (bet.status !== "waiting") continue;
-
         if (currentBlock <= bet.commitBlock) continue;
 
         if (currentBlock > bet.commitBlock + 256) {
           bet.status = "expired";
+          bet.wins = 0;
+          bet.rollResults = [];
           changed = true;
           continue;
         }
@@ -307,14 +416,31 @@ const Home: NextPage = () => {
           const block = await publicClient.getBlock({ blockNumber: BigInt(bet.commitBlock) });
           if (!block.hash) continue;
 
-          const randomSeed = keccak256(encodePacked(["bytes32", "bytes32"], [bet.secret as `0x${string}`, block.hash]));
-          const isWinner = BigInt(randomSeed) % BigInt(bet.multiplier) === 0n;
+          // Check each roll
+          const rollResults: RollResult[] = [];
+          let wins = 0;
+          for (let i = 0; i < bet.numRolls; i++) {
+            const randomSeed = keccak256(
+              encodePacked(["bytes32", "bytes32", "uint8"], [bet.secret as `0x${string}`, block.hash, i]),
+            );
+            const won = BigInt(randomSeed) % BigInt(bet.multiplier) === 0n;
+            rollResults.push({ index: i, won });
+            if (won) wins++;
+          }
 
-          bet.status = isWinner ? "won" : "lost";
+          bet.status = "resolved";
+          bet.wins = wins;
+          bet.rollResults = rollResults;
+
           const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
-          setLastResult({ type: isWinner ? "won" : "lost", multiplier: bet.multiplier, betLabel });
-          if (isWinner) fireWinConfetti();
-          // Auto-clear result after 4 seconds
+          setLastResult({
+            type: wins > 0 ? "won" : "lost",
+            multiplier: bet.multiplier,
+            betLabel,
+            wins,
+            numRolls: bet.numRolls,
+          });
+          if (wins > 0) fireWinConfetti();
           setTimeout(() => setLastResult(null), 4000);
           changed = true;
         } catch {}
@@ -329,21 +455,25 @@ const Home: NextPage = () => {
     checkBets();
   }, [currentBlock, publicClient, connectedAddress]);
 
-  // Clean up expired bets from local storage (no contract call needed)
+  // Clean up expired bets
   useEffect(() => {
     if (!connectedAddress) return;
     const bets = loadBets(connectedAddress);
     const expired = bets.filter(b => b.status === "expired");
     if (expired.length === 0) return;
-    for (const bet of expired) {
-      const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
-      if (idx >= 0) bets[idx].status = "lost";
+    // Mark expired as resolved with 0 wins (lost)
+    let changed = false;
+    for (const bet of bets) {
+      if (bet.status === "expired") {
+        // Keep as expired for display
+      }
     }
-    saveBets(connectedAddress, bets);
-    setPendingBets([...bets]);
+    if (changed) {
+      saveBets(connectedAddress, bets);
+      setPendingBets([...bets]);
+    }
   }, [connectedAddress, pendingBets]);
 
-  // Reset isApproving when allowance actually updates
   useEffect(() => {
     if (isApproving && !needsApproval) {
       setIsApproving(false);
@@ -354,46 +484,51 @@ const Home: NextPage = () => {
     if (!connectedAddress) return;
     setIsApproving(true);
     setAwaitingWallet(true);
-    openWallet();
     try {
-      await approveWrite({ functionName: "approve", args: [contractAddress, selectedBet.value * 10n] });
+      await writeAndOpen(() =>
+        approveWrite({ functionName: "approve", args: [contractAddress, totalBetAmount * 100n] }),
+      );
       setAwaitingWallet(false);
       await refetchAllowance();
       notification.success("CLAWD approved!");
-      // Don't set isApproving=false here — wait for needsApproval to flip via the useEffect above
     } catch (e) {
       notification.error(parseError(e));
       setIsApproving(false);
     }
     setAwaitingWallet(false);
-  }, [connectedAddress, approveWrite, contractAddress, refetchAllowance, selectedBet]);
+  }, [connectedAddress, approveWrite, contractAddress, refetchAllowance, totalBetAmount]);
 
   const handleClick = useCallback(async () => {
     if (!connectedAddress || !publicClient) return;
     setIsClicking(true);
     setAwaitingWallet(true);
-    openWallet();
     try {
       const secret = randomBytes32();
       const salt = randomBytes32();
       const dataHash = keccak256(encodePacked(["bytes32", "bytes32"], [secret, salt]));
 
-      const txHash = await gameWrite({
-        functionName: "click",
-        args: [dataHash, selectedBet.value, BigInt(selectedMultiplier)],
-      });
+      const args =
+        selectedRolls === 1
+          ? { functionName: "click" as const, args: [dataHash, selectedBet.value, BigInt(selectedMultiplier)] as const }
+          : {
+              functionName: "click" as const,
+              args: [dataHash, selectedBet.value, BigInt(selectedMultiplier), selectedRolls] as const,
+            };
+
+      const txHash = await writeAndOpen(() => gameWrite(args));
 
       setAwaitingWallet(false);
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
       const commitBlock = Number(receipt.blockNumber);
 
-      // Get bet index from player's bet count (it's length - 1 after the tx)
-      // We read logs to find the betIndex from the BetPlaced event
+      // Get bet index from BetPlaced event
       const betPlacedTopic = keccak256(
-        encodePacked(["string"], ["BetPlaced(address,uint256,bytes32,uint256,uint256,uint256,uint256,uint256)"]),
+        encodePacked(
+          ["string"],
+          ["BetPlaced(address,uint256,bytes32,uint256,uint256,uint256,uint8,uint256,uint256)"],
+        ),
       );
       const log = receipt.logs.find(l => l.topics[0] === betPlacedTopic);
-      // betIndex is the second indexed param (topics[2])
       const betIndex = log ? Number(BigInt(log.topics[2] || "0")) : 0;
 
       const newBet: PendingBet = {
@@ -403,7 +538,11 @@ const Home: NextPage = () => {
         commitBlock,
         betAmount: selectedBet.value.toString(),
         multiplier: selectedMultiplier,
+        numRolls: selectedRolls,
         status: "waiting",
+        wins: 0,
+        rollResults: [],
+        timestamp: Date.now(),
       };
 
       const bets = loadBets(connectedAddress);
@@ -411,44 +550,114 @@ const Home: NextPage = () => {
       saveBets(connectedAddress, bets);
       setPendingBets([...bets]);
 
-      notification.success(`Bet placed! ${selectedBet.label} @ ${selectedMultiplier}x 🎲`);
+      notification.success(
+        `Bet placed! ${selectedBet.label} @ ${selectedMultiplier}x${selectedRolls > 1 ? ` × ${selectedRolls} rolls` : ""} 🎲`,
+      );
     } catch (e) {
       notification.error(parseError(e));
     }
     setIsClicking(false);
     setAwaitingWallet(false);
-  }, [connectedAddress, gameWrite, publicClient, selectedBet, selectedMultiplier]);
+  }, [connectedAddress, gameWrite, publicClient, selectedBet, selectedMultiplier, selectedRolls]);
+
+  const markBetClaimed = useCallback(
+    (bet: PendingBet) => {
+      if (!connectedAddress) return;
+      const bets = loadBets(connectedAddress);
+      const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
+      if (idx >= 0) bets[idx].status = "claimed";
+      saveBets(connectedAddress, bets);
+      setPendingBets([...bets]);
+    },
+    [connectedAddress],
+  );
 
   const handleClaim = useCallback(
     async (bet: PendingBet) => {
       if (!connectedAddress) return;
       setIsClaiming(bet.betIndex);
       try {
-        await gameWrite({
-          functionName: "reveal",
-          args: [BigInt(bet.betIndex), bet.secret as `0x${string}`, bet.salt as `0x${string}`],
-        });
+        await writeAndOpen(() =>
+          gameWrite({
+            functionName: "reveal",
+            args: [BigInt(bet.betIndex), bet.secret as `0x${string}`, bet.salt as `0x${string}`],
+          }),
+        );
 
-        const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
-
-        const bets = loadBets(connectedAddress);
-        const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
-        if (idx >= 0) bets[idx].status = "claimed";
-        saveBets(connectedAddress, bets);
-        setPendingBets([...bets]);
-
-        notification.success(`🎉 Claimed ${formatClawd(payout)} CLAWD!`);
+        const grossPayout =
+          (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n * BigInt(bet.wins);
+        const netPayout = grossPayout - grossPayout / 100n;
+        markBetClaimed(bet);
+        notification.success(`🎉 Claimed ${formatClawd(netPayout)} CLAWD! (${bet.wins}/${bet.numRolls} wins)`);
       } catch (e) {
-        notification.error(parseError(e));
+        const msg = (e as Error)?.message || String(e);
+        if (msg.includes("Already claimed")) {
+          markBetClaimed(bet);
+          notification.info("Already claimed — updated status.");
+        } else {
+          notification.error(parseError(e));
+        }
       }
       setIsClaiming(null);
+    },
+    [connectedAddress, gameWrite, markBetClaimed],
+  );
+
+  const [isBatchClaiming, setIsBatchClaiming] = useState(false);
+
+  const handleBatchClaim = useCallback(
+    async (bets: PendingBet[]) => {
+      if (!connectedAddress || bets.length === 0) return;
+      setIsBatchClaiming(true);
+      try {
+        const indices = bets.map(b => BigInt(b.betIndex));
+        const secrets = bets.map(b => b.secret as `0x${string}`);
+        const salts = bets.map(b => b.salt as `0x${string}`);
+
+        await writeAndOpen(() =>
+          gameWrite({
+            functionName: "batchReveal",
+            args: [indices, secrets, salts],
+          }),
+        );
+
+        let totalPayout = 0n;
+        const allBets = loadBets(connectedAddress);
+        for (const bet of bets) {
+          const idx = allBets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
+          if (idx >= 0) allBets[idx].status = "claimed";
+          const gross = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n * BigInt(bet.wins);
+          totalPayout += gross - gross / 100n;
+        }
+        saveBets(connectedAddress, allBets);
+        setPendingBets([...allBets]);
+
+        notification.success(`🎉 Claimed ${bets.length} bets — ${formatClawd(totalPayout)} CLAWD!`);
+      } catch (e) {
+        const msg = (e as Error)?.message || String(e);
+        if (msg.includes("Already claimed")) {
+          const allBets = loadBets(connectedAddress);
+          for (const bet of bets) {
+            const idx = allBets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
+            if (idx >= 0) allBets[idx].status = "claimed";
+          }
+          saveBets(connectedAddress, allBets);
+          setPendingBets([...allBets]);
+          notification.info("Some bets already claimed — updated status.");
+        } else {
+          notification.error(parseError(e));
+        }
+      }
+      setIsBatchClaiming(false);
     },
     [connectedAddress, gameWrite],
   );
 
   const clearFinished = useCallback(() => {
     if (!connectedAddress) return;
-    const bets = loadBets(connectedAddress).filter(b => b.status === "waiting" || b.status === "won");
+    const bets = loadBets(connectedAddress).filter(
+      b => b.status === "waiting" || (b.status === "resolved" && b.wins > 0),
+    );
     saveBets(connectedAddress, bets);
     setPendingBets([...bets]);
   }, [connectedAddress]);
@@ -466,14 +675,23 @@ const Home: NextPage = () => {
     return `$${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
   };
 
-  const hasEnoughBalance = clawdBalance !== undefined && clawdBalance >= selectedBet.value;
-  const houseCanPay = canAfford(selectedBet.value, selectedMultiplier);
+  const hasEnoughBalance = clawdBalance !== undefined && clawdBalance >= totalBetAmount;
+  const houseCanPay = canAfford(selectedBet.value, selectedMultiplier, selectedRolls);
 
-  // Active bets (won, waiting)
-  const activeBets = pendingBets.filter(b => b.status === "won" || b.status === "waiting");
-  const claimableBets = pendingBets.filter(b => b.status === "won");
+  // Active bets
+  const activeBets = pendingBets.filter(
+    b => (b.status === "resolved" && b.wins > 0) || b.status === "waiting",
+  );
+  const isRolling = activeBets.some(b => b.status === "waiting");
+  const claimableBets = pendingBets.filter(b => b.status === "resolved" && b.wins > 0);
   const recentFinished = pendingBets
-    .filter(b => b.status === "lost" || b.status === "expired" || b.status === "claimed")
+    .filter(
+      b =>
+        (b.status === "resolved" && b.wins === 0) ||
+        b.status === "expired" ||
+        b.status === "claimed" ||
+        (b.status === "resolved" && b.wins > 0),
+    )
     .slice(-10);
 
   if (!disclaimerAccepted) {
@@ -504,10 +722,10 @@ const Home: NextPage = () => {
         </div>
       )}
 
-      {/* Main Game Card — Betting */}
+      {/* Main Game Card */}
       <div className="card bg-base-100 shadow-xl w-full max-w-md">
         <div className="card-body items-center text-center">
-          <p className="text-sm opacity-70 mb-2">Pick your bet, pick your odds, roll as many times as you want</p>
+          <p className="text-sm opacity-70 mb-2">Pick your bet, pick your odds, pick your rolls</p>
 
           {/* Bet Size */}
           <div className="w-full">
@@ -516,12 +734,12 @@ const Home: NextPage = () => {
                 Bet Size{" "}
                 {clawdPriceUsd > 0 && (
                   <span className="font-normal opacity-60">
-                    (${(Number(formatEther(selectedBet.value)) * clawdPriceUsd).toFixed(2)})
+                    (${(Number(formatEther(selectedBet.value)) * clawdPriceUsd).toFixed(2)} each)
                   </span>
                 )}
               </span>
             </label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {BET_TIERS.map(tier => (
                 <button
                   key={tier.label}
@@ -541,7 +759,7 @@ const Home: NextPage = () => {
             </label>
             <div className="grid grid-cols-5 gap-2">
               {MULTIPLIERS.map(mult => {
-                const affordable = canAfford(selectedBet.value, mult);
+                const affordable = canAfford(selectedBet.value, mult, selectedRolls);
                 return (
                   <button
                     key={mult}
@@ -556,19 +774,64 @@ const Home: NextPage = () => {
             </div>
           </div>
 
+          {/* Number of Rolls */}
+          <div className="w-full mt-2">
+            <label className="label">
+              <span className="label-text font-bold">
+                Rolls{" "}
+                <span className="font-normal opacity-60">
+                  ({selectedRolls} × {selectedBet.label} ={" "}
+                  {formatClawd(selectedBet.value * BigInt(selectedRolls))} CLAWD)
+                </span>
+              </span>
+            </label>
+            <div className="grid grid-cols-7 gap-1">
+              {ROLL_OPTIONS.map(n => {
+                const affordable = canAfford(selectedBet.value, selectedMultiplier, n);
+                const hasBalance = clawdBalance !== undefined && clawdBalance >= selectedBet.value * BigInt(n);
+                const enabled = affordable && hasBalance;
+                return (
+                  <button
+                    key={n}
+                    className={`btn btn-sm ${selectedRolls === n ? "btn-accent" : enabled ? "btn-outline" : "btn-disabled opacity-30"}`}
+                    disabled={!enabled}
+                    onClick={() => enabled && setSelectedRolls(n)}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Payout Info */}
           <div className="bg-base-200 rounded-lg p-3 w-full mt-3 text-sm">
             <div className="flex justify-between">
-              <span className="opacity-70">Win chance</span>
+              <span className="opacity-70">Win chance per roll</span>
               <span className="font-bold">1 in {selectedMultiplier}</span>
             </div>
+            {selectedRolls > 1 && (
+              <div className="flex justify-between">
+                <span className="opacity-70">Expected wins</span>
+                <span className="font-bold">{(selectedRolls / selectedMultiplier).toFixed(1)}</span>
+              </div>
+            )}
             <div className="flex justify-between">
-              <span className="opacity-70">Payout</span>
+              <span className="opacity-70">Payout per win</span>
               <span className="font-bold text-success">
-                {formatClawd(currentPayout)} CLAWD{" "}
-                <span className="font-normal opacity-60">{formatUsd(currentPayout)}</span>
+                {formatClawd(singlePayout)} CLAWD{" "}
+                <span className="font-normal opacity-60">{formatUsd(singlePayout)}</span>
               </span>
             </div>
+            {selectedRolls > 1 && (
+              <div className="flex justify-between">
+                <span className="opacity-70">Max payout (all win)</span>
+                <span className="font-bold text-success">
+                  {formatClawd(currentTotalPayout)} CLAWD{" "}
+                  <span className="font-normal opacity-60">{formatUsd(currentTotalPayout)}</span>
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="opacity-70">🔥 Burn</span>
               <span className="font-bold text-warning">
@@ -606,7 +869,9 @@ const Home: NextPage = () => {
               <button className="btn btn-disabled btn-lg w-full">Game Paused</button>
             ) : !hasEnoughBalance ? (
               <div className="alert alert-warning">
-                <span>Need at least {selectedBet.display} CLAWD</span>
+                <span>
+                  Need {formatClawd(totalBetAmount)} CLAWD ({selectedRolls} × {selectedBet.display})
+                </span>
               </div>
             ) : !houseCanPay ? (
               <div className="alert alert-warning">
@@ -623,13 +888,21 @@ const Home: NextPage = () => {
                 )}
               </button>
             ) : (
-              <button className="btn btn-primary btn-lg w-full text-xl" disabled={isClicking} onClick={handleClick}>
+              <button
+                className="btn btn-primary btn-lg w-full text-xl"
+                disabled={isClicking || isRolling}
+                onClick={handleClick}
+              >
                 {isClicking ? (
                   <>
                     <span className="loading loading-spinner"></span>Rolling...
                   </>
+                ) : isRolling ? (
+                  <>
+                    <span className="loading loading-spinner"></span>Waiting for result...
+                  </>
                 ) : (
-                  `ROLL ${selectedBet.label} @ ${selectedMultiplier}x`
+                  `ROLL ${selectedBet.label} @ ${selectedMultiplier}x${selectedRolls > 1 ? ` × ${selectedRolls}` : ""}`
                 )}
               </button>
             )}
@@ -642,7 +915,7 @@ const Home: NextPage = () => {
         </div>
       </div>
 
-      {/* Rolling Animation — shown when any bet is waiting */}
+      {/* Rolling Animation */}
       {activeBets.some(b => b.status === "waiting") && (
         <div
           ref={el => {
@@ -651,12 +924,15 @@ const Home: NextPage = () => {
           className="card bg-base-100 shadow-xl w-full max-w-md"
         >
           <div className="card-body items-center">
-            <RollingAnimation multiplier={activeBets.find(b => b.status === "waiting")?.multiplier || 2} />
+            <RollingAnimation
+              multiplier={activeBets.find(b => b.status === "waiting")?.multiplier || 2}
+              numRolls={activeBets.find(b => b.status === "waiting")?.numRolls || 1}
+            />
           </div>
         </div>
       )}
 
-      {/* Result Flash — shows briefly after a roll resolves */}
+      {/* Result Flash */}
       {lastResult && !activeBets.some(b => b.status === "waiting") && (
         <div
           className={`card shadow-xl w-full max-w-md border-2 ${
@@ -665,9 +941,16 @@ const Home: NextPage = () => {
         >
           <div className="card-body items-center text-center py-6">
             <div className="text-5xl mb-2">{lastResult.type === "won" ? "🎉" : "💀"}</div>
-            <div className="text-2xl font-black">{lastResult.type === "won" ? "YOU WON!" : "REKT"}</div>
+            <div className="text-2xl font-black">
+              {lastResult.type === "won"
+                ? lastResult.numRolls > 1
+                  ? `${lastResult.wins}/${lastResult.numRolls} WINS!`
+                  : "YOU WON!"
+                : "REKT"}
+            </div>
             <div className="text-sm opacity-70">
               {lastResult.betLabel} @ {lastResult.multiplier}x
+              {lastResult.numRolls > 1 ? ` × ${lastResult.numRolls} rolls` : ""}
             </div>
           </div>
         </div>
@@ -677,36 +960,56 @@ const Home: NextPage = () => {
       {activeBets.length > 0 && (
         <div className="card bg-base-100 shadow-xl w-full max-w-md">
           <div className="card-body">
-            <h2 className="card-title text-lg">
-              🎲 Your Active Bets
-              {claimableBets.length > 0 && <span className="badge badge-success">{claimableBets.length} won!</span>}
-            </h2>
+            <div className="flex justify-between items-center">
+              <h2 className="card-title text-lg">
+                🎲 Your Active Bets
+                {claimableBets.length > 0 && (
+                  <span className="badge badge-success">{claimableBets.length} to claim</span>
+                )}
+              </h2>
+              {claimableBets.length > 1 && (
+                <button
+                  className="btn btn-success btn-sm"
+                  disabled={isBatchClaiming}
+                  onClick={() => handleBatchClaim(claimableBets)}
+                >
+                  {isBatchClaiming ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : (
+                    `🏆 Claim All (${claimableBets.length})`
+                  )}
+                </button>
+              )}
+            </div>
             <div className="space-y-3">
               {activeBets.map(bet => {
                 const blocksLeft = Math.max(0, bet.commitBlock + 256 - currentBlock);
-                const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+                const grossPayout =
+                  (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n * BigInt(bet.wins);
+                const netPayout = grossPayout - grossPayout / 100n;
                 const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
 
                 return (
                   <div
                     key={`${bet.betIndex}-${bet.commitBlock}`}
-                    className={`p-3 rounded-lg ${bet.status === "won" ? "bg-success/15 border border-success/30" : "bg-base-200"}`}
+                    className={`p-3 rounded-lg ${bet.status === "resolved" && bet.wins > 0 ? "bg-success/15 border border-success/30" : "bg-base-200"}`}
                   >
                     <div className="flex justify-between items-center">
                       <div>
                         <span className="font-bold">
                           {betLabel} @ {bet.multiplier}x
+                          {bet.numRolls > 1 && <span className="opacity-60"> × {bet.numRolls}</span>}
                         </span>
-                        {bet.status === "won" && (
+                        {bet.status === "resolved" && bet.wins > 0 && (
                           <span className="text-success font-bold ml-2">
-                            → {formatClawd(payout)} CLAWD{" "}
-                            <span className="font-normal opacity-60">{formatUsd(payout)}</span>
+                            → {bet.wins}/{bet.numRolls} won → {formatClawd(netPayout)} CLAWD{" "}
+                            <span className="font-normal opacity-60">{formatUsd(netPayout)}</span>
                           </span>
                         )}
                       </div>
                       <div className="text-right">
                         {bet.status === "waiting" && <span className="text-xs opacity-60">waiting for block...</span>}
-                        {bet.status === "won" && (
+                        {bet.status === "resolved" && bet.wins > 0 && (
                           <div>
                             <div className="text-xs opacity-60 mb-1">⏱️ {blocksLeft} blocks left</div>
                             <button
@@ -724,8 +1027,25 @@ const Home: NextPage = () => {
                         )}
                       </div>
                     </div>
-                    {bet.status === "won" && blocksLeft < 50 && (
-                      <div className="text-xs text-warning mt-1">⚠️ Claim soon! Only {blocksLeft} blocks remaining</div>
+                    {/* Roll results visualization */}
+                    {bet.rollResults.length > 1 && (
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {bet.rollResults.map((r, i) => (
+                          <div
+                            key={i}
+                            className={`w-6 h-6 rounded text-xs flex items-center justify-center font-bold ${
+                              r.won ? "bg-success text-success-content" : "bg-error/30 text-error"
+                            }`}
+                          >
+                            {r.won ? "✓" : "✗"}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {bet.status === "resolved" && bet.wins > 0 && blocksLeft < 50 && (
+                      <div className="text-xs text-warning mt-1">
+                        ⚠️ Claim soon! Only {blocksLeft} blocks remaining
+                      </div>
                     )}
                   </div>
                 );
@@ -748,21 +1068,34 @@ const Home: NextPage = () => {
             <div className="space-y-1">
               {recentFinished.reverse().map((bet, i) => {
                 const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
+                const grossPayout =
+                  (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n * BigInt(bet.wins);
+                const netPayout = grossPayout - grossPayout / 100n;
                 return (
-                  <div key={i} className="flex justify-between text-sm p-1">
-                    <span>
+                  <div key={i} className="flex justify-between items-center text-sm p-1">
+                    <span className="flex items-center gap-2">
                       {betLabel} @ {bet.multiplier}x
+                      {bet.numRolls > 1 && <span className="opacity-50">×{bet.numRolls}</span>}
+                      <TimeAgo timestamp={bet.timestamp} />
                     </span>
                     <span
                       className={
-                        bet.status === "claimed"
-                          ? "text-success"
-                          : bet.status === "expired"
-                            ? "text-warning"
-                            : "opacity-50"
+                        bet.status === "resolved" && bet.wins > 0
+                          ? "text-success font-bold"
+                          : bet.status === "claimed"
+                            ? "text-success"
+                            : bet.status === "expired"
+                              ? "text-warning"
+                              : "opacity-50"
                       }
                     >
-                      {bet.status === "claimed" ? "✅ Claimed" : bet.status === "expired" ? "⏰ Expired" : "❌ Lost"}
+                      {bet.status === "resolved" && bet.wins > 0
+                        ? `🎉 ${bet.wins}/${bet.numRolls} Won ${formatClawd(netPayout)}`
+                        : bet.status === "claimed"
+                          ? `✅ Claimed ${formatClawd(netPayout)}`
+                          : bet.status === "expired"
+                            ? "⏰ Expired"
+                            : `❌ ${bet.numRolls > 1 ? `0/${bet.numRolls}` : "Lost"}`}
                     </span>
                   </div>
                 );
@@ -782,8 +1115,9 @@ const Home: NextPage = () => {
                 <div key={i} className="flex items-center justify-between p-2 bg-success/10 rounded-lg">
                   <Address address={event.args.player} />
                   <span className="font-bold text-success">
-                    {event.args.multiplier?.toString()}x → +{formatClawd(event.args.payout)} 🦞{" "}
-                    <span className="font-normal opacity-60">{formatUsd(event.args.payout)}</span>
+                    {event.args.wins?.toString()}/{event.args.numRolls?.toString()} →{" "}
+                    +{formatClawd(event.args.totalPayout)} 🦞{" "}
+                    <span className="font-normal opacity-60">{formatUsd(event.args.totalPayout)}</span>
                   </span>
                 </div>
               ))}
@@ -792,9 +1126,9 @@ const Home: NextPage = () => {
         </div>
       )}
 
-      {/* Stats Bar — bottom */}
+      {/* Stats Bar */}
       <div className="flex flex-wrap justify-center gap-4 text-sm opacity-70 w-full max-w-md mt-4 bg-base-300/70 backdrop-blur-sm rounded-lg px-4 py-2">
-        <span>Bets {totalBets?.toString() || "0"}</span>
+        <span>Rolls {totalBets?.toString() || "0"}</span>
         <span>Wins {totalWins?.toString() || "0"}</span>
         <span>Paid {formatClawd(totalPaidOut)}</span>
         <span>🔥 Burned {formatClawd(totalBurned)}</span>

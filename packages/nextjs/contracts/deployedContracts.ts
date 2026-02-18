@@ -7,896 +7,885 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   8453: {
     TenTwentyFourX: {
-      address: "0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc",
+      address: "0xaA7466fa805e59f06c83BEfB2B4e256A9B246b04",
       abi: [
-      {
-            "type": "constructor",
-            "inputs": [
-                  {
-                        "name": "_token",
-                        "type": "address",
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "_owner",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "BURN_ADDRESS",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "BURN_PERCENT",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "HOUSE_EDGE_PERCENT",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "REVEAL_WINDOW",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "VALID_BETS",
-            "inputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "VALID_MULTIPLIERS",
-            "inputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "WITHDRAW_DELAY",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "acceptOwnership",
-            "inputs": [],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "batchReveal",
-            "inputs": [
-                  {
-                        "name": "betIndices",
-                        "type": "uint256[]",
-                        "internalType": "uint256[]"
-                  },
-                  {
-                        "name": "secrets",
-                        "type": "bytes32[]",
-                        "internalType": "bytes32[]"
-                  },
-                  {
-                        "name": "salts",
-                        "type": "bytes32[]",
-                        "internalType": "bytes32[]"
-                  }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "cancelWithdraw",
-            "inputs": [],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "checkWin",
-            "inputs": [
-                  {
-                        "name": "secret",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  },
-                  {
-                        "name": "blockHash",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  },
-                  {
-                        "name": "multiplier",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "bool",
-                        "internalType": "bool"
-                  }
-            ],
-            "stateMutability": "pure"
-      },
-      {
-            "type": "function",
-            "name": "click",
-            "inputs": [
-                  {
-                        "name": "dataHash",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  },
-                  {
-                        "name": "betAmount",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "multiplier",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "computeHash",
-            "inputs": [
-                  {
-                        "name": "secret",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  },
-                  {
-                        "name": "salt",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  }
-            ],
-            "stateMutability": "pure"
-      },
-      {
-            "type": "function",
-            "name": "executeWithdraw",
-            "inputs": [],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "getBet",
-            "inputs": [
-                  {
-                        "name": "player",
-                        "type": "address",
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "betIndex",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "dataHash",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  },
-                  {
-                        "name": "commitBlock",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "betAmount",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "multiplier",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "claimed",
-                        "type": "bool",
-                        "internalType": "bool"
-                  },
-                  {
-                        "name": "blocksLeft",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "getPayoutFor",
-            "inputs": [
-                  {
-                        "name": "betAmount",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "multiplier",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "pure"
-      },
-      {
-            "type": "function",
-            "name": "getPlayerBetCount",
-            "inputs": [
-                  {
-                        "name": "player",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "getValidBets",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256[4]",
-                        "internalType": "uint256[4]"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "getValidMultipliers",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256[10]",
-                        "internalType": "uint256[10]"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "houseBalance",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "maxMultiplierForBet",
-            "inputs": [
-                  {
-                        "name": "betAmount",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "owner",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "paused",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "bool",
-                        "internalType": "bool"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "pendingOwner",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "playerBets",
-            "inputs": [
-                  {
-                        "name": "",
-                        "type": "address",
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "outputs": [
-                  {
-                        "name": "dataHash",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  },
-                  {
-                        "name": "commitBlock",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "betAmount",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "multiplier",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "claimed",
-                        "type": "bool",
-                        "internalType": "bool"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "proposeOwner",
-            "inputs": [
-                  {
-                        "name": "newOwner",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "requestWithdraw",
-            "inputs": [
-                  {
-                        "name": "_to",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "reveal",
-            "inputs": [
-                  {
-                        "name": "betIndex",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "secret",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  },
-                  {
-                        "name": "salt",
-                        "type": "bytes32",
-                        "internalType": "bytes32"
-                  }
-            ],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "token",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "address",
-                        "internalType": "contract IERC20"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "totalBetAmount",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "totalBets",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "totalBurned",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "totalPaidOut",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "totalWins",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "unpause",
-            "inputs": [],
-            "outputs": [],
-            "stateMutability": "nonpayable"
-      },
-      {
-            "type": "function",
-            "name": "withdrawRequestedAt",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "uint256",
-                        "internalType": "uint256"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "function",
-            "name": "withdrawTo",
-            "inputs": [],
-            "outputs": [
-                  {
-                        "name": "",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ],
-            "stateMutability": "view"
-      },
-      {
-            "type": "event",
-            "name": "BetForfeited",
-            "inputs": [
-                  {
-                        "name": "player",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "betIndex",
-                        "type": "uint256",
-                        "indexed": true,
-                        "internalType": "uint256"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "event",
-            "name": "BetPlaced",
-            "inputs": [
-                  {
-                        "name": "player",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "betIndex",
-                        "type": "uint256",
-                        "indexed": true,
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "dataHash",
-                        "type": "bytes32",
-                        "indexed": false,
-                        "internalType": "bytes32"
-                  },
-                  {
-                        "name": "commitBlock",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "betAmount",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "multiplier",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "potentialPayout",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "burnAmount",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "event",
-            "name": "BetWon",
-            "inputs": [
-                  {
-                        "name": "player",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "betIndex",
-                        "type": "uint256",
-                        "indexed": true,
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "secret",
-                        "type": "bytes32",
-                        "indexed": false,
-                        "internalType": "bytes32"
-                  },
-                  {
-                        "name": "betAmount",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "multiplier",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  },
-                  {
-                        "name": "payout",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "event",
-            "name": "OwnershipAccepted",
-            "inputs": [
-                  {
-                        "name": "oldOwner",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "newOwner",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "event",
-            "name": "OwnershipProposed",
-            "inputs": [
-                  {
-                        "name": "current",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "proposed",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "event",
-            "name": "Paused",
-            "inputs": [
-                  {
-                        "name": "isPaused",
-                        "type": "bool",
-                        "indexed": false,
-                        "internalType": "bool"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "event",
-            "name": "TokensBurned",
-            "inputs": [
-                  {
-                        "name": "amount",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "event",
-            "name": "WithdrawCancelled",
-            "inputs": [
-                  {
-                        "name": "by",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "event",
-            "name": "WithdrawExecuted",
-            "inputs": [
-                  {
-                        "name": "to",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "amount",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "event",
-            "name": "WithdrawRequested",
-            "inputs": [
-                  {
-                        "name": "by",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "to",
-                        "type": "address",
-                        "indexed": true,
-                        "internalType": "address"
-                  },
-                  {
-                        "name": "executeAfter",
-                        "type": "uint256",
-                        "indexed": false,
-                        "internalType": "uint256"
-                  }
-            ],
-            "anonymous": false
-      },
-      {
-            "type": "error",
-            "name": "ReentrancyGuardReentrantCall",
-            "inputs": []
-      },
-      {
-            "type": "error",
-            "name": "SafeERC20FailedOperation",
-            "inputs": [
-                  {
-                        "name": "token",
-                        "type": "address",
-                        "internalType": "address"
-                  }
-            ]
-      }
-],
-      inheritedFunctions: {},
+        {
+          type: "constructor",
+          inputs: [
+            {
+              name: "_token",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "_owner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "BURN_ADDRESS",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "BURN_PERCENT",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "HOUSE_EDGE_PERCENT",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "MAX_PAYOUT_DIVISOR",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "REVEAL_WINDOW",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "VALID_BETS",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "VALID_MULTIPLIERS",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "WITHDRAW_DELAY",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "acceptOwnership",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "batchReveal",
+          inputs: [
+            {
+              name: "betIndices",
+              type: "uint256[]",
+              internalType: "uint256[]",
+            },
+            {
+              name: "secrets",
+              type: "bytes32[]",
+              internalType: "bytes32[]",
+            },
+            {
+              name: "salts",
+              type: "bytes32[]",
+              internalType: "bytes32[]",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "cancelWithdraw",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "checkWin",
+          inputs: [
+            {
+              name: "secret",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "blockHash",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "multiplier",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "click",
+          inputs: [
+            {
+              name: "dataHash",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "betAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "multiplier",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "computeHash",
+          inputs: [
+            {
+              name: "secret",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "salt",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "executeWithdraw",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "getBet",
+          inputs: [
+            {
+              name: "player",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "betIndex",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "dataHash",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "commitBlock",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "betAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "multiplier",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "claimed",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getPayoutFor",
+          inputs: [
+            {
+              name: "betAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "multiplier",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "pure",
+        },
+        {
+          type: "function",
+          name: "getPlayerBetCount",
+          inputs: [
+            {
+              name: "player",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getValidBets",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256[6]",
+              internalType: "uint256[6]",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "getValidMultipliers",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256[10]",
+              internalType: "uint256[10]",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "houseBalance",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "owner",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "paused",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "pendingOwner",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "playerBets",
+          inputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "dataHash",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "commitBlock",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "betAmount",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "multiplier",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "claimed",
+              type: "bool",
+              internalType: "bool",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "proposeOwner",
+          inputs: [
+            {
+              name: "newOwner",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "renounceOwnership",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "requestWithdraw",
+          inputs: [
+            {
+              name: "_to",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "reveal",
+          inputs: [
+            {
+              name: "betIndex",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "secret",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+            {
+              name: "salt",
+              type: "bytes32",
+              internalType: "bytes32",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "token",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "contract IERC20",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "totalBetAmount",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "totalBets",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "totalBurned",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "totalPaidOut",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "totalWins",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "unpause",
+          inputs: [],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "withdrawRequestedAt",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "withdrawTimeRemaining",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "withdrawTo",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "event",
+          name: "BetPlaced",
+          inputs: [
+            {
+              name: "player",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "betIndex",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "dataHash",
+              type: "bytes32",
+              indexed: false,
+              internalType: "bytes32",
+            },
+            {
+              name: "commitBlock",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "betAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "multiplier",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "potentialPayout",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "burnAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "BetWon",
+          inputs: [
+            {
+              name: "player",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "betIndex",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "secret",
+              type: "bytes32",
+              indexed: false,
+              internalType: "bytes32",
+            },
+            {
+              name: "betAmount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "multiplier",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+            {
+              name: "payout",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "OwnershipAccepted",
+          inputs: [
+            {
+              name: "oldOwner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "newOwner",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "OwnershipProposed",
+          inputs: [
+            {
+              name: "current",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "proposed",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "Paused",
+          inputs: [
+            {
+              name: "isPaused",
+              type: "bool",
+              indexed: false,
+              internalType: "bool",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "TokensBurned",
+          inputs: [
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "WithdrawCancelled",
+          inputs: [
+            {
+              name: "by",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "WithdrawExecuted",
+          inputs: [
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "amount",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "WithdrawRequested",
+          inputs: [
+            {
+              name: "by",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "to",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "executeAfter",
+              type: "uint256",
+              indexed: false,
+              internalType: "uint256",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "error",
+          name: "ReentrancyGuardReentrantCall",
+          inputs: [],
+        },
+        {
+          type: "error",
+          name: "SafeERC20FailedOperation",
+          inputs: [
+            {
+              name: "token",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+        },
+      ],
     },
   },
 } as const;

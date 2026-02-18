@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Address } from "@scaffold-ui/components";
 
-const CONTRACT_ADDRESS = "0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc";
+const CONTRACT_ADDRESS = "0x6b003f883c608bdad938cd6dc3730b17ac46e196";
 
 /**
  * Site footer
