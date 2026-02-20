@@ -6,7 +6,7 @@ A variable-odds CLAWD token betting game on Base. Pick your bet size, pick your 
 
 ## How It Works
 
-1. **Pick & Roll** — Choose bet size (10K–500K CLAWD) + multiplier (2x–1024x). Roll as many times as you want!
+1. **Pick & Roll** — Choose bet size (2K–1M CLAWD) + multiplier (2x–1024x). Roll as many times as you want!
 2. **Check** — After 1 block, each roll resolves. Winners glow green.
 3. **Claim** — Hit claim within 256 blocks (~8 min). Countdown shows time remaining.
 
@@ -14,7 +14,7 @@ Uses commit-reveal so neither the player nor the blockchain can predict the outc
 
 - **House edge:** 2%
 - **Burn:** 1% of every bet is burned 🔥
-- **Contract:** [`0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc`](https://basescan.org/address/0xeF2F6D7020f4B088fee65D5369Bc792D7B2f40fc) on Base
+- **Contract:** [`0xaA7466fa805e59f06c83BEfB2B4e256A9B246b04`](https://basescan.org/address/0xaA7466fa805e59f06c83BEfB2B4e256A9B246b04) on Base (v4)
 - **Token:** [$CLAWD](https://basescan.org/token/0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07) on Base
 - **Live:** [1024x.fun](https://1024x.fun)
 
