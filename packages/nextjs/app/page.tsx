@@ -407,15 +407,9 @@ const Home: NextPage = () => {
   });
   const { data: isPaused } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "paused" });
 
-  // Pin fromBlock so it doesn't change every block and cause re-fetches/flashing
-  const winEventsFromBlock = useRef(0n);
-  if (winEventsFromBlock.current === 0n && currentBlock > 0) {
-    winEventsFromBlock.current = BigInt(Math.max(0, currentBlock - 50000));
-  }
   const { data: winEvents } = useScaffoldEventHistory({
     contractName: "TenTwentyFourX",
     eventName: "BetWon",
-    fromBlock: winEventsFromBlock.current || 0n,
     watch: true,
   });
 
