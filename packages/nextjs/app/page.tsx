@@ -14,40 +14,145 @@ import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth/useScaffoldWrite
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { notification } from "~~/utils/scaffold-eth";
 
-// 🦞🎲💰 Win confetti!
-function fireWinConfetti() {
-  const lobsterEmojis = ["🦞", "🎲", "💰", "🎉", "💎", "🔥"];
-  // Burst from both sides
-  const defaults = { startVelocity: 30, spread: 360, ticks: 80, zIndex: 9999 };
+// 🦞🎲💰 Win confetti — scales with multiplier!
+function fireWinConfetti(multiplier: number = 2) {
+  const colors = ["#FF6B35", "#FFD700", "#FF1744", "#00E676", "#FF9100", "#FFEB3B", "#76FF03"];
+  const defaults = { zIndex: 9999, colors, disableForReducedMotion: true };
+
+  // Intensity tiers: 2-4x = mild, 8-16x = medium, 32-128x = heavy, 256-1024x = insane
+  const intensity = multiplier <= 4 ? 1 : multiplier <= 16 ? 2 : multiplier <= 128 ? 3 : 4;
+  const baseCount = [80, 200, 400, 600][intensity - 1];
+  const flashOpacity = [0.15, 0.25, 0.4, 0.6][intensity - 1];
+  const flashDuration = [0.8, 1.2, 1.5, 2.5][intensity - 1];
 
   function fire(particleRatio: number, opts: confetti.Options) {
-    confetti({ ...defaults, ...opts, particleCount: Math.floor(200 * particleRatio) });
+    confetti({ ...defaults, ...opts, particleCount: Math.floor(baseCount * particleRatio) });
   }
 
-  fire(0.25, { spread: 26, startVelocity: 55, origin: { x: 0.2, y: 0.6 } });
-  fire(0.2, { spread: 60, origin: { x: 0.5, y: 0.5 } });
-  fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, origin: { x: 0.8, y: 0.6 } });
-  fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2, origin: { x: 0.5, y: 0.3 } });
-
-  // Emoji confetti — lobsters, dice, money
-  const shapeDefaults = { startVelocity: 20, spread: 360, ticks: 90, zIndex: 10000, scalar: 2, gravity: 0.6 };
-  lobsterEmojis.forEach((emoji, i) => {
-    setTimeout(() => {
-      confetti({
-        ...shapeDefaults,
-        particleCount: 8,
-        shapes: ["circle"],
-        colors: ["#FF6B35", "#FFD700", "#FF1744", "#00E676"],
-        origin: { x: 0.2 + Math.random() * 0.6, y: 0.3 + Math.random() * 0.3 },
-      });
-    }, i * 150);
+  // Wave 1 — initial burst (always)
+  fire(0.3, { spread: 30, startVelocity: 45 + intensity * 10, origin: { x: 0.1, y: 0.6 }, ticks: 60 + intensity * 30 });
+  fire(0.3, { spread: 30, startVelocity: 45 + intensity * 10, origin: { x: 0.9, y: 0.6 }, ticks: 60 + intensity * 30 });
+  fire(0.25, {
+    spread: 80 + intensity * 20,
+    startVelocity: 40 + intensity * 10,
+    origin: { x: 0.5, y: 0.4 },
+    ticks: 80 + intensity * 20,
   });
 
-  // Second wave
-  setTimeout(() => {
-    fire(0.3, { spread: 100, startVelocity: 45, origin: { x: 0.3, y: 0.7 } });
-    fire(0.3, { spread: 100, startVelocity: 45, origin: { x: 0.7, y: 0.7 } });
-  }, 400);
+  // Wave 2 — gold rain (medium+)
+  if (intensity >= 2) {
+    setTimeout(() => {
+      fire(0.4, {
+        spread: 180,
+        startVelocity: 55,
+        origin: { x: 0.5, y: -0.1 },
+        gravity: 0.8,
+        ticks: 150,
+        colors: ["#FFD700", "#FFC107", "#FFAB00", "#FF9100"],
+      });
+    }, 300);
+  }
+
+  // Wave 3 — corner cannons (medium+)
+  if (intensity >= 2) {
+    setTimeout(() => {
+      fire(0.35, { angle: 60, spread: 50, startVelocity: 50 + intensity * 10, origin: { x: 0, y: 1 }, ticks: 120 });
+      fire(0.35, { angle: 120, spread: 50, startVelocity: 50 + intensity * 10, origin: { x: 1, y: 1 }, ticks: 120 });
+    }, 600);
+  }
+
+  // Wave 4 — center explosion (heavy+)
+  if (intensity >= 3) {
+    setTimeout(() => {
+      fire(0.5, { spread: 360, startVelocity: 40, origin: { x: 0.5, y: 0.5 }, ticks: 100, scalar: 1.5 });
+    }, 900);
+  }
+
+  // Wave 5+ — sparkle shower, repeated for higher tiers
+  if (intensity >= 3) {
+    const showerCount = intensity === 3 ? 5 : 12;
+    setTimeout(() => {
+      for (let i = 0; i < showerCount; i++) {
+        setTimeout(() => {
+          confetti({
+            ...defaults,
+            particleCount: 20 + intensity * 15,
+            spread: 180,
+            startVelocity: 15,
+            gravity: 0.4,
+            scalar: 0.8,
+            ticks: 200,
+            origin: { x: Math.random(), y: -0.1 },
+            colors: ["#FFD700", "#FFEB3B", "#FFF176"],
+          });
+        }, i * 300);
+      }
+    }, 1200);
+  }
+
+  // Insane tier (256x+) — continuous side cannons for 4 seconds
+  if (intensity >= 4) {
+    for (let i = 0; i < 8; i++) {
+      setTimeout(
+        () => {
+          fire(0.3, {
+            angle: 60 + Math.random() * 20,
+            spread: 40,
+            startVelocity: 70 + Math.random() * 20,
+            origin: { x: 0, y: 0.7 + Math.random() * 0.3 },
+            ticks: 150,
+          });
+          fire(0.3, {
+            angle: 100 + Math.random() * 20,
+            spread: 40,
+            startVelocity: 70 + Math.random() * 20,
+            origin: { x: 1, y: 0.7 + Math.random() * 0.3 },
+            ticks: 150,
+          });
+        },
+        500 + i * 500,
+      );
+    }
+  }
+
+  // Screen flash — scales with intensity
+  if (typeof document !== "undefined") {
+    const flash = document.createElement("div");
+    flash.style.cssText = `position:fixed;inset:0;background:radial-gradient(circle,rgba(255,215,0,${flashOpacity}),rgba(0,230,118,${flashOpacity * 0.5}),transparent 70%);z-index:9998;pointer-events:none;animation:winFlash ${flashDuration}s ease-out forwards`;
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), flashDuration * 1000);
+  }
+}
+
+// Inject win animation keyframes
+if (typeof document !== "undefined") {
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes winFlash {
+      0% { opacity: 0; }
+      15% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    @keyframes winPulse {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.03); filter: brightness(1.3); }
+    }
+    @keyframes winGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(0,230,118,0.3), 0 0 60px rgba(255,215,0,0.1); }
+      50% { box-shadow: 0 0 40px rgba(0,230,118,0.6), 0 0 100px rgba(255,215,0,0.3), 0 0 150px rgba(255,107,53,0.1); }
+    }
+    @keyframes winTextPop {
+      0% { transform: scale(0.5); opacity: 0; }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes winEmoji {
+      0% { transform: scale(0) rotate(-30deg); }
+      50% { transform: scale(1.3) rotate(10deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+  `;
+  document.body.appendChild(style);
 }
 
 // Rolling animation component
@@ -173,9 +278,13 @@ const Home: NextPage = () => {
   const [isClicking, setIsClicking] = useState(false);
   const [awaitingWallet, setAwaitingWallet] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
-  const [lastResult, setLastResult] = useState<{ type: "won" | "lost"; multiplier: number; betLabel: string } | null>(
-    null,
-  );
+  const [lastResult, setLastResult] = useState<{
+    type: "won" | "lost";
+    multiplier: number;
+    betLabel: string;
+    payout?: bigint;
+    bet?: PendingBet;
+  } | null>(null);
 
   // Check disclaimer acceptance
   useEffect(() => {
@@ -416,10 +525,17 @@ const Home: NextPage = () => {
 
           bet.status = isWinner ? "won" : "lost";
           const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
-          setLastResult({ type: isWinner ? "won" : "lost", multiplier: bet.multiplier, betLabel });
-          if (isWinner) fireWinConfetti();
-          // Auto-clear result after 4 seconds
-          setTimeout(() => setLastResult(null), 4000);
+          const winPayout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+          setLastResult({
+            type: isWinner ? "won" : "lost",
+            multiplier: bet.multiplier,
+            betLabel,
+            payout: isWinner ? winPayout : undefined,
+            bet: isWinner ? { ...bet } : undefined,
+          });
+          if (isWinner) fireWinConfetti(bet.multiplier);
+          // Losses auto-clear; wins persist until manually dismissed or claimed
+          if (!isWinner) setTimeout(() => setLastResult(null), 4000);
           changed = true;
         } catch {}
       }
@@ -534,6 +650,11 @@ const Home: NextPage = () => {
       if (idx >= 0) bets[idx].status = "claimed";
       saveBets(connectedAddress, bets);
       setPendingBets([...bets]);
+      // Clear win card if this bet was the one displayed
+      setLastResult(prev => {
+        if (prev?.bet?.betIndex === bet.betIndex && prev?.bet?.commitBlock === bet.commitBlock) return null;
+        return prev;
+      });
     },
     [connectedAddress],
   );
@@ -552,6 +673,7 @@ const Home: NextPage = () => {
 
         const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
         markBetClaimed(bet);
+        setLastResult(null);
         notification.success(`🎉 Claimed ${formatClawd(payout)} CLAWD!`);
       } catch (e) {
         const msg = (e as Error)?.message || String(e);
@@ -596,6 +718,7 @@ const Home: NextPage = () => {
         saveBets(connectedAddress, allBets);
         setPendingBets([...allBets]);
 
+        setLastResult(null);
         notification.success(`🎉 Claimed ${bets.length} wins — ${formatClawd(totalPayout)} CLAWD!`);
       } catch (e) {
         const msg = (e as Error)?.message || String(e);
@@ -837,22 +960,76 @@ const Home: NextPage = () => {
         </div>
       )}
 
-      {/* Result Flash — shows briefly after a roll resolves */}
-      {lastResult && !activeBets.some(b => b.status === "waiting") && (
-        <div
-          className={`card shadow-xl w-full max-w-md border-2 ${
-            lastResult.type === "won" ? "border-success bg-success/20" : "border-error/50 bg-error/10"
-          }`}
-        >
-          <div className="card-body items-center text-center py-6">
-            <div className="text-5xl mb-2">{lastResult.type === "won" ? "🎉" : "💀"}</div>
-            <div className="text-2xl font-black">{lastResult.type === "won" ? "YOU WON!" : "REKT"}</div>
-            <div className="text-sm opacity-70">
-              {lastResult.betLabel} @ {lastResult.multiplier}x
+      {/* Result Flash — shows after a roll resolves */}
+      {lastResult &&
+        !activeBets.some(b => b.status === "waiting") &&
+        (lastResult.type === "won" ? (
+          <div
+            className="card w-full max-w-md border-4 border-success relative overflow-hidden"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(0,230,118,0.25) 0%, rgba(255,215,0,0.15) 50%, rgba(0,230,118,0.25) 100%)",
+              animation: "winGlow 1.5s ease-in-out infinite, winPulse 2s ease-in-out infinite",
+            }}
+          >
+            <div className="card-body items-center text-center py-8">
+              <div
+                className="flex gap-3 mb-3"
+                style={{ animation: "winEmoji 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards" }}
+              >
+                <span className="text-6xl">🦞</span>
+                <span className="text-6xl">💰</span>
+                <span className="text-6xl">🎉</span>
+              </div>
+              <div
+                className="text-5xl font-black text-transparent bg-clip-text"
+                style={{
+                  backgroundImage: "linear-gradient(to right, #00E676, #FFD700, #FF6B35)",
+                  animation: "winTextPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+                  WebkitBackgroundClip: "text",
+                }}
+              >
+                YOU WON!
+              </div>
+              {lastResult.payout && (
+                <div className="text-3xl font-black text-success mt-2">
+                  +{formatClawd(lastResult.payout)} CLAWD
+                  {formatUsd(lastResult.payout) && (
+                    <span className="text-xl font-bold opacity-70 ml-2">{formatUsd(lastResult.payout)}</span>
+                  )}
+                </div>
+              )}
+              <div className="text-lg opacity-80 mt-1">
+                {lastResult.betLabel} @ {lastResult.multiplier}x 🔥
+              </div>
+              {lastResult.bet && (
+                <button
+                  className="btn btn-success btn-lg mt-4 text-xl"
+                  disabled={isClaiming === lastResult.bet.betIndex}
+                  onClick={() => lastResult.bet && handleClaim(lastResult.bet)}
+                >
+                  {isClaiming === lastResult.bet.betIndex ? (
+                    <>
+                      <span className="loading loading-spinner"></span>Claiming...
+                    </>
+                  ) : (
+                    "🏆 Claim Winnings"
+                  )}
+                </button>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="card shadow-xl w-full max-w-md border-2 border-error/50 bg-error/10">
+            <div className="card-body items-center text-center py-6">
+              <div className="text-5xl mb-2">💀</div>
+              <div className="text-2xl font-black">REKT</div>
+              <div className="text-sm opacity-70">
+                {lastResult.betLabel} @ {lastResult.multiplier}x
+              </div>
+            </div>
+          </div>
+        ))}
 
       {/* Active Bets */}
       {activeBets.length > 0 && (
