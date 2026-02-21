@@ -407,9 +407,11 @@ const Home: NextPage = () => {
   });
   const { data: isPaused } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "paused" });
 
+  // Contract deployed around block 28000000 on Base — need a fromBlock or query is too large
   const { data: winEvents } = useScaffoldEventHistory({
     contractName: "TenTwentyFourX",
     eventName: "BetWon",
+    fromBlock: 28000000n,
     watch: true,
   });
 
