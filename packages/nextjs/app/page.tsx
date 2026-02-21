@@ -555,17 +555,21 @@ const Home: NextPage = () => {
 
   // Clean up expired bets from local storage (no contract call needed)
   useEffect(() => {
-    if (!connectedAddress) return;
+    if (!connectedAddress || currentBlock === 0) return;
     const bets = loadBets(connectedAddress);
-    const expired = bets.filter(b => b.status === "expired");
-    if (expired.length === 0) return;
-    for (const bet of expired) {
+    // Mark both "expired" status and won bets past 256 blocks as lost
+    const stale = bets.filter(
+      b =>
+        b.status === "expired" || (b.status === "won" && currentBlock > b.commitBlock + 256),
+    );
+    if (stale.length === 0) return;
+    for (const bet of stale) {
       const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
       if (idx >= 0) bets[idx].status = "lost";
     }
     saveBets(connectedAddress, bets);
     setPendingBets([...bets]);
-  }, [connectedAddress, pendingBets]);
+  }, [connectedAddress, currentBlock]);
 
   // Reset isApproving when allowance actually updates
   useEffect(() => {
@@ -773,7 +777,9 @@ const Home: NextPage = () => {
   // Active bets (won, waiting)
   const activeBets = pendingBets.filter(b => b.status === "won" || b.status === "waiting");
   const isRolling = activeBets.some(b => b.status === "waiting");
-  const claimableBets = pendingBets.filter(b => b.status === "won");
+  const claimableBets = pendingBets.filter(
+    b => b.status === "won" && currentBlock > 0 && b.commitBlock + 256 > currentBlock,
+  );
   const recentFinished = pendingBets
     .filter(b => b.status === "lost" || b.status === "expired" || b.status === "claimed" || b.status === "won")
     .slice(-10);
@@ -1088,7 +1094,7 @@ const Home: NextPage = () => {
                       </div>
                       <div className="text-right">
                         {bet.status === "waiting" && <span className="text-xs opacity-60">waiting for block...</span>}
-                        {bet.status === "won" && (
+                        {bet.status === "won" && blocksLeft > 0 && (
                           <div>
                             <div className="text-xs opacity-60 mb-1">⏱️ {blocksLeft} blocks left</div>
                             <button
@@ -1104,9 +1110,12 @@ const Home: NextPage = () => {
                             </button>
                           </div>
                         )}
+                        {bet.status === "won" && blocksLeft === 0 && (
+                          <span className="text-warning text-xs">⏰ Expired</span>
+                        )}
                       </div>
                     </div>
-                    {bet.status === "won" && blocksLeft < 50 && (
+                    {bet.status === "won" && blocksLeft < 50 && blocksLeft > 0 && (
                       <div className="text-xs text-warning mt-1">⚠️ Claim soon! Only {blocksLeft} blocks remaining</div>
                     )}
                   </div>
