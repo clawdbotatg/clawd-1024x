@@ -554,14 +554,17 @@ const Home: NextPage = () => {
   }, [currentBlock, publicClient, connectedAddress]);
 
   // Clean up expired bets from local storage (no contract call needed)
+  const lastCleanupBlock = useRef(0);
   useEffect(() => {
     if (!connectedAddress || currentBlock === 0) return;
+    if (currentBlock === lastCleanupBlock.current) return;
     const bets = loadBets(connectedAddress);
     // Mark both "expired" status and won bets past 256 blocks as lost
     const stale = bets.filter(
       b => b.status === "expired" || (b.status === "won" && currentBlock > b.commitBlock + 256),
     );
     if (stale.length === 0) return;
+    lastCleanupBlock.current = currentBlock;
     for (const bet of stale) {
       const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
       if (idx >= 0) bets[idx].status = "lost";
