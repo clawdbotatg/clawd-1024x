@@ -414,8 +414,11 @@ const Home: NextPage = () => {
     watch: true,
   });
 
-  const currentPayout = (selectedBet.value * BigInt(selectedMultiplier) * 98n) / 100n;
-  const currentBurn = selectedBet.value / 100n;
+  // Gross payout (after 2% house edge), used for contract-level checks
+  const grossPayout = (selectedBet.value * BigInt(selectedMultiplier) * 98n) / 100n;
+  // Net payout after 1% claim burn — what the player actually receives
+  const currentPayout = grossPayout - (grossPayout * 1n) / 100n;
+  const currentBurn = selectedBet.value / 100n + (grossPayout * 1n) / 100n;
 
   const canAfford = (betValue: bigint, mult: number): boolean => {
     if (!houseBalance) return false;
@@ -525,7 +528,8 @@ const Home: NextPage = () => {
 
           bet.status = isWinner ? "won" : "lost";
           const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
-          const winPayout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+          const grossWin = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+          const winPayout = grossWin - (grossWin * 1n) / 100n;
           setLastResult({
             type: isWinner ? "won" : "lost",
             multiplier: bet.multiplier,
@@ -671,7 +675,8 @@ const Home: NextPage = () => {
           }),
         );
 
-        const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+        const grossP = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+        const payout = grossP - (grossP * 1n) / 100n;
         markBetClaimed(bet);
         setLastResult(null);
         notification.success(`🎉 Claimed ${formatClawd(payout)} CLAWD!`);
@@ -713,7 +718,8 @@ const Home: NextPage = () => {
         for (const bet of bets) {
           const idx = allBets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
           if (idx >= 0) allBets[idx].status = "claimed";
-          totalPayout += (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+          const gp = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+          totalPayout += gp - (gp * 1n) / 100n;
         }
         saveBets(connectedAddress, allBets);
         setPendingBets([...allBets]);
@@ -1059,7 +1065,8 @@ const Home: NextPage = () => {
             <div className="space-y-3">
               {activeBets.map(bet => {
                 const blocksLeft = Math.max(0, bet.commitBlock + 256 - currentBlock);
-                const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+                const gPayout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+                const payout = gPayout - (gPayout * 1n) / 100n;
                 const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
 
                 return (
@@ -1123,7 +1130,8 @@ const Home: NextPage = () => {
             <div className="space-y-1">
               {recentFinished.reverse().map((bet, i) => {
                 const betLabel = BET_TIERS.find(t => t.value.toString() === bet.betAmount)?.label || "?";
-                const payout = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+                const gP = (BigInt(bet.betAmount) * BigInt(bet.multiplier) * 98n) / 100n;
+                const payout = gP - (gP * 1n) / 100n;
                 return (
                   <div key={i} className="flex justify-between items-center text-sm p-1">
                     <span className="flex items-center gap-2">
