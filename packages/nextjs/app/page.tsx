@@ -1182,6 +1182,14 @@ const Home: NextPage = () => {
       )}
 
       {/* Recent Winners (global) */}
+      {/* Stats Bar */}
+      <div className="flex flex-wrap justify-center gap-4 text-sm opacity-70 w-full max-w-md mt-4 bg-base-300/70 backdrop-blur-sm rounded-lg px-4 py-2">
+        <span>Bets {totalBets?.toString() || "0"}</span>
+        <span>Wins {totalWins?.toString() || "0"}</span>
+        <span>Paid {formatClawd(totalPaidOut)}</span>
+        <span>🔥 Burned {formatClawd(totalBurned)}</span>
+      </div>
+
       {winEvents && winEvents.length > 0 && (
         <div className="card bg-base-100 shadow-xl w-full max-w-md">
           <div className="card-body">
@@ -1200,14 +1208,6 @@ const Home: NextPage = () => {
           </div>
         </div>
       )}
-
-      {/* Stats Bar — bottom */}
-      <div className="flex flex-wrap justify-center gap-4 text-sm opacity-70 w-full max-w-md mt-4 bg-base-300/70 backdrop-blur-sm rounded-lg px-4 py-2">
-        <span>Bets {totalBets?.toString() || "0"}</span>
-        <span>Wins {totalWins?.toString() || "0"}</span>
-        <span>Paid {formatClawd(totalPaidOut)}</span>
-        <span>🔥 Burned {formatClawd(totalBurned)}</span>
-      </div>
     </div>
   );
 };
