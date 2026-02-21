@@ -407,11 +407,15 @@ const Home: NextPage = () => {
   });
   const { data: isPaused } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "paused" });
 
-  // Contract deployed around block 28000000 on Base — need a fromBlock or query is too large
+  // Only scan recent blocks for winners to avoid thrashing the RPC
+  const winEventsFromBlock = useRef(0n);
+  if (winEventsFromBlock.current === 0n && currentBlock > 0) {
+    winEventsFromBlock.current = BigInt(Math.max(0, currentBlock - 10000));
+  }
   const { data: winEvents } = useScaffoldEventHistory({
     contractName: "TenTwentyFourX",
     eventName: "BetWon",
-    fromBlock: 28000000n,
+    fromBlock: winEventsFromBlock.current || 1n,
     watch: true,
   });
 
