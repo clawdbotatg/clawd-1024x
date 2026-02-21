@@ -539,7 +539,7 @@ const Home: NextPage = () => {
           });
           if (isWinner) fireWinConfetti(bet.multiplier);
           // Losses auto-clear; wins persist until manually dismissed or claimed
-          if (!isWinner) setTimeout(() => setLastResult(null), 4000);
+          // Results stay visible until user dismisses them
           changed = true;
         } catch {}
       }
@@ -559,8 +559,7 @@ const Home: NextPage = () => {
     const bets = loadBets(connectedAddress);
     // Mark both "expired" status and won bets past 256 blocks as lost
     const stale = bets.filter(
-      b =>
-        b.status === "expired" || (b.status === "won" && currentBlock > b.commitBlock + 256),
+      b => b.status === "expired" || (b.status === "won" && currentBlock > b.commitBlock + 256),
     );
     if (stale.length === 0) return;
     for (const bet of stale) {
@@ -979,7 +978,8 @@ const Home: NextPage = () => {
         !activeBets.some(b => b.status === "waiting") &&
         (lastResult.type === "won" ? (
           <div
-            className="card w-full max-w-md border-4 border-success relative overflow-hidden"
+            className="card w-full max-w-md border-4 border-success relative overflow-hidden cursor-pointer"
+            onClick={() => !lastResult.bet && setLastResult(null)}
             style={{
               background:
                 "linear-gradient(135deg, rgba(0,230,118,0.25) 0%, rgba(255,215,0,0.15) 50%, rgba(0,230,118,0.25) 100%)",
@@ -1031,16 +1031,21 @@ const Home: NextPage = () => {
                   )}
                 </button>
               )}
+              {!lastResult.bet && <div className="text-xs opacity-40 mt-2">tap to dismiss</div>}
             </div>
           </div>
         ) : (
-          <div className="card shadow-xl w-full max-w-md border-2 border-error/50 bg-error/10">
+          <div
+            className="card shadow-xl w-full max-w-md border-2 border-error/50 bg-error/10 cursor-pointer"
+            onClick={() => setLastResult(null)}
+          >
             <div className="card-body items-center text-center py-6">
               <div className="text-5xl mb-2">💀</div>
               <div className="text-2xl font-black">REKT</div>
               <div className="text-sm opacity-70">
                 {lastResult.betLabel} @ {lastResult.multiplier}x
               </div>
+              <div className="text-xs opacity-40 mt-2">tap to dismiss</div>
             </div>
           </div>
         ))}
