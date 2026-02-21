@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head><title>1024x Admin</title></head>
+<body>
+<h1>1024x Contract Admin</h1>
+<p>New Contract: 0xaA7466fa805e59f06c83BEfB2B4e256A9B246b04</p>
+<p>CLAWD Token: 0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07</p>
+<p id="status">Not connected</p>
+<button id="connect">Connect MetaMask</button>
+<br><br>
+<button id="fund">Fund Contract (send 11,118,600 CLAWD)</button>
+<br><br>
+<p id="result"></p>
+<script>
+const NEW_CONTRACT = '0xaA7466fa805e59f06c83BEfB2B4e256A9B246b04';
+const CLAWD = '0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07';
+const OWNER = '0x11ce532845cE0eAcdA41f72FDc1C88c335981442';
+// 11,118,600 CLAWD in wei (11118600 * 1e18)
+const AMOUNT = '0x' + (BigInt('11118600000000000000000000')).toString(16);
+
+document.getElementById('connect').onclick = async () => {
+  const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+  document.getElementById('status').textContent = 'Connected: ' + accounts[0];
+  try {
+    await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] });
+  } catch(e) { console.error(e); }
+};
+
+document.getElementById('fund').onclick = async () => {
+  document.getElementById('result').textContent = 'Sending CLAWD transfer...';
+  try {
+    // ERC20 transfer(address,uint256)
+    const selector = 'a9059cbb';
+    const to = NEW_CONTRACT.slice(2).toLowerCase().padStart(64, '0');
+    const amount = BigInt('11118600000000000000000000').toString(16).padStart(64, '0');
+    const data = '0x' + selector + to + amount;
+    const tx = await ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: OWNER, to: CLAWD, data }]
+    });
+    document.getElementById('result').textContent = 'Funded! TX: ' + tx;
+  } catch(e) {
+    document.getElementById('result').textContent = 'Error: ' + e.message;
+  }
+};
+</script>
+</body>
+</html>
