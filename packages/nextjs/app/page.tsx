@@ -779,9 +779,11 @@ const Home: NextPage = () => {
           <div className="card-body text-center">
             <h2 className="card-title text-2xl font-black justify-center">⚠️ Disclaimer</h2>
             <p className="text-sm opacity-80 mt-2 leading-relaxed">
-              This is unaudited, experimental software written by AI. The smart contract has not been reviewed by any
-              human. Do not put money in this. Do not connect your wallet. Solvency is best-effort — multiple
-              simultaneous large wins could exceed house balance. This is all slop-lobster claw-dogged.
+              This is unaudited, experimental software written entirely by AI. The smart contract has not been reviewed
+              by any human. Do not put money in this. Do not connect your wallet. Solvency is best-effort — multiple
+              simultaneous large wins could exceed house balance. You should only use this experimental software if you
+              are legally permitted to do so in your jurisdiction. By proceeding, you accept all risk. This is all
+              slop-lobster claw-dogged.
             </p>
             <button className="btn btn-primary btn-lg w-full mt-4 text-lg" onClick={acceptDisclaimer}>
               I Understand
