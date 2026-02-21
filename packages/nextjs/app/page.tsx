@@ -407,10 +407,15 @@ const Home: NextPage = () => {
   });
   const { data: isPaused } = useScaffoldReadContract({ contractName: "TenTwentyFourX", functionName: "paused" });
 
+  // Only scan recent blocks for winners to avoid thrashing the RPC
+  const winEventsFromBlock = useRef(0n);
+  if (winEventsFromBlock.current === 0n && currentBlock > 0) {
+    winEventsFromBlock.current = BigInt(Math.max(0, currentBlock - 10000));
+  }
   const { data: winEvents } = useScaffoldEventHistory({
     contractName: "TenTwentyFourX",
     eventName: "BetWon",
-    fromBlock: BigInt(Math.max(0, currentBlock - 50000)),
+    fromBlock: winEventsFromBlock.current || 1n,
     watch: true,
   });
 
@@ -539,7 +544,7 @@ const Home: NextPage = () => {
           });
           if (isWinner) fireWinConfetti(bet.multiplier);
           // Losses auto-clear; wins persist until manually dismissed or claimed
-          if (!isWinner) setTimeout(() => setLastResult(null), 4000);
+          // Results stay visible until user dismisses them
           changed = true;
         } catch {}
       }
@@ -554,15 +559,17 @@ const Home: NextPage = () => {
   }, [currentBlock, publicClient, connectedAddress]);
 
   // Clean up expired bets from local storage (no contract call needed)
+  const lastCleanupBlock = useRef(0);
   useEffect(() => {
     if (!connectedAddress || currentBlock === 0) return;
+    if (currentBlock === lastCleanupBlock.current) return;
     const bets = loadBets(connectedAddress);
     // Mark both "expired" status and won bets past 256 blocks as lost
     const stale = bets.filter(
-      b =>
-        b.status === "expired" || (b.status === "won" && currentBlock > b.commitBlock + 256),
+      b => b.status === "expired" || (b.status === "won" && currentBlock > b.commitBlock + 256),
     );
     if (stale.length === 0) return;
+    lastCleanupBlock.current = currentBlock;
     for (const bet of stale) {
       const idx = bets.findIndex(b => b.betIndex === bet.betIndex && b.commitBlock === bet.commitBlock);
       if (idx >= 0) bets[idx].status = "lost";
@@ -979,7 +986,8 @@ const Home: NextPage = () => {
         !activeBets.some(b => b.status === "waiting") &&
         (lastResult.type === "won" ? (
           <div
-            className="card w-full max-w-md border-4 border-success relative overflow-hidden"
+            className="card w-full max-w-md border-4 border-success relative overflow-hidden cursor-pointer"
+            onClick={() => !lastResult.bet && setLastResult(null)}
             style={{
               background:
                 "linear-gradient(135deg, rgba(0,230,118,0.25) 0%, rgba(255,215,0,0.15) 50%, rgba(0,230,118,0.25) 100%)",
@@ -1031,16 +1039,21 @@ const Home: NextPage = () => {
                   )}
                 </button>
               )}
+              {!lastResult.bet && <div className="text-xs opacity-40 mt-2">tap to dismiss</div>}
             </div>
           </div>
         ) : (
-          <div className="card shadow-xl w-full max-w-md border-2 border-error/50 bg-error/10">
+          <div
+            className="card shadow-xl w-full max-w-md border-2 border-error/50 bg-error/10 cursor-pointer"
+            onClick={() => setLastResult(null)}
+          >
             <div className="card-body items-center text-center py-6">
               <div className="text-5xl mb-2">💀</div>
               <div className="text-2xl font-black">REKT</div>
               <div className="text-sm opacity-70">
                 {lastResult.betLabel} @ {lastResult.multiplier}x
               </div>
+              <div className="text-xs opacity-40 mt-2">tap to dismiss</div>
             </div>
           </div>
         ))}
@@ -1175,6 +1188,14 @@ const Home: NextPage = () => {
       )}
 
       {/* Recent Winners (global) */}
+      {/* Stats Bar */}
+      <div className="flex flex-wrap justify-center gap-4 text-sm opacity-70 w-full max-w-md mt-4 bg-base-300/70 backdrop-blur-sm rounded-lg px-4 py-2">
+        <span>Bets {totalBets?.toString() || "0"}</span>
+        <span>Wins {totalWins?.toString() || "0"}</span>
+        <span>Paid {formatClawd(totalPaidOut)}</span>
+        <span>🔥 Burned {formatClawd(totalBurned)}</span>
+      </div>
+
       {winEvents && winEvents.length > 0 && (
         <div className="card bg-base-100 shadow-xl w-full max-w-md">
           <div className="card-body">
@@ -1193,14 +1214,6 @@ const Home: NextPage = () => {
           </div>
         </div>
       )}
-
-      {/* Stats Bar — bottom */}
-      <div className="flex flex-wrap justify-center gap-4 text-sm opacity-70 w-full max-w-md mt-4 bg-base-300/70 backdrop-blur-sm rounded-lg px-4 py-2">
-        <span>Bets {totalBets?.toString() || "0"}</span>
-        <span>Wins {totalWins?.toString() || "0"}</span>
-        <span>Paid {formatClawd(totalPaidOut)}</span>
-        <span>🔥 Burned {formatClawd(totalBurned)}</span>
-      </div>
     </div>
   );
 };
